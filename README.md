@@ -72,9 +72,56 @@ PnL divided by execution entry notional.
 
 The verified full test suite result after Phase 3 is **180 passed**.
 
-Later planned work includes SQLite persistence and recovery, live market data,
-Telegram integration, and production hardening. These capabilities are not
-implemented in the current repository.
+### Phase 4 — Deterministic persistence and recovery
+
+Phase 4 adds a narrow SQLite adapter around immutable `ReplayState`; replay,
+strategy, and backtest behavior remain persistence-agnostic. A checkpoint is
+identified by its symbol, fixed 15m/4h topology (including duration and equal-
+boundary priority), every `ReplayConfig` field, and every `StrategyConfig`
+field. The identity is canonical UTF-8 JSON (sorted keys, compact separators,
+no non-finite values) hashed with SHA-256. `BacktestConfig` is intentionally
+not part of the recovery identity.
+
+```python
+from quasartrend.persistence import PersistenceIdentity, SQLiteCheckpointStore
+
+identity = PersistenceIdentity("BINANCE:BTCUSDT.P", replay_config, strategy_config)
+store = SQLiteCheckpointStore("var/checkpoints.db")  # construction has no I/O
+store.save_checkpoint(identity, replay_state)
+recovered = SQLiteCheckpointStore("var/checkpoints.db").load_checkpoint(identity)
+```
+
+The database has one `checkpoints` row per `(symbol, execution_timeframe,
+htf_timeframe)` slot. Its `PRAGMA user_version` is schema version `1`, and its
+strict JSON replay envelope has checkpoint version `1`. Saves serialize and
+validate the full replay state before a `BEGIN IMMEDIATE` transaction; SQLite
+uses `synchronous=FULL` and the default rollback journal (WAL is not enabled).
+The successful transaction atomically initializes an actually empty database
+when needed and replaces the one active slot row for its compatible identity.
+A failed write rolls back, leaving the previous valid checkpoint available.
+
+An occupied slot cannot be saved under a different configuration fingerprint:
+call `delete_checkpoint` with the original identity before creating a checkpoint
+for the replacement configuration. `saved_at_ms` is wall-clock metadata only;
+it is never part of replay equality, fingerprinting, chronology, or ordering.
+
+`load_checkpoint` and `delete_checkpoint` never create a missing database or
+directory. They return absence only for a missing/empty database or missing
+slot. Schema, checkpoint-version, JSON/recursive-state corruption, symbol
+mismatch, configuration mismatch, and chronology regression are explicit
+persistence errors; a corrupted checkpoint is never silently treated as a
+fresh replay state. The persisted chronology cursor is the replay cursor, not
+the wall-clock `saved_at_ms` metadata, so the existing duplicate, ordering, and
+same-boundary rules continue unchanged after recovery.
+
+Recovery tests compare uninterrupted replay with the full concatenation of
+prefix and resumed-suffix replay traces, then run the existing event-only
+backtest over both complete trace sequences. Backtest accounting/results are
+not persisted by Phase 4.
+
+Later planned work includes live market data, Telegram integration, and
+production hardening. These capabilities are not implemented in the current
+repository.
 
 ## Architecture
 
@@ -94,7 +141,8 @@ QuasarTrend/
 │       ├── indicators/         # Pine-compatible indicator implementations
 │       ├── strategy/           # Deterministic Phase 2 strategy state machine
 │       ├── replay/             # Closed-candle chronological MTF replay
-│       └── backtest/           # Event-only deterministic accounting/metrics
+│       ├── backtest/           # Event-only deterministic accounting/metrics
+│       └── persistence/        # SQLite replay checkpoints and strict codec
 ├── tests/
 │   ├── golden/                 # Tracked export instructions; CSV exports stay local
 │   └── test_*.py
