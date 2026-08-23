@@ -44,10 +44,33 @@ golden CSV exports present. Fresh clones skip export-dependent checks until the
 datasets are generated as described in
 [`tests/golden/README.md`](tests/golden/README.md).
 
-### Phase 3 — Next
+### Phase 3 — PASS
 
-Planned Phase 3 work is chronological multi-timeframe replay, no-lookahead
-verification, historical backtesting, a fill model, fees/slippage, and metrics.
+Phase 3 adds a dependency-free chronological replay layer and an event-only
+historical backtester. `HistoricalBar.open_time` is explicitly the source bar's
+epoch-millisecond open time; its legal decision time is
+`open_time + timeframe duration`. The initial topology supports only 15m
+execution bars and 4H bias bars. Inputs must already be strictly ordered by
+`(finalized_at, priority)`, where a 4H bar is processed before a 15m bar at an
+equal finalization instant. Gaps are accepted but never synthesized.
+
+Replay updates the existing incremental HEMA/Kalman implementations and passes
+the resulting finalized `StrategyBar` to the existing `StrategyEngine`. A 4H
+HEMA snapshot is retained only after its candle finalizes, so it cannot affect
+earlier 15m decisions. `ReplayState` holds strict-JSON indicator checkpoints,
+the Phase 2 state, the latest legal 4H bias, and chronology cursor, allowing
+prefix/resume replay without mutable global state.
+
+The backtester consumes replay `TRADE_OPENED` and `TRADE_CLOSED` events only;
+it does not recreate entries, exits, or stops. It applies fixed quantity
+(default `1.0`), deterministic adverse bps slippage, and bps fees to canonical
+Phase 2 event prices. Its equity curve is cumulative realized PnL, updated on
+close only with no initial-capital or unrealized-MTM convention. Consequently,
+max drawdown percentage is intentionally `None`. Gross PnL is calculated from
+execution-adjusted fills before fees, and each trade's fractional return is net
+PnL divided by execution entry notional.
+
+The verified full test suite result after Phase 3 is **180 passed**.
 
 Later planned work includes SQLite persistence and recovery, live market data,
 Telegram integration, and production hardening. These capabilities are not
@@ -69,7 +92,9 @@ QuasarTrend/
 ├── src/
 │   └── quasartrend/
 │       ├── indicators/         # Pine-compatible indicator implementations
-│       └── strategy/           # Deterministic Phase 2 strategy state machine
+│       ├── strategy/           # Deterministic Phase 2 strategy state machine
+│       ├── replay/             # Closed-candle chronological MTF replay
+│       └── backtest/           # Event-only deterministic accounting/metrics
 ├── tests/
 │   ├── golden/                 # Tracked export instructions; CSV exports stay local
 │   └── test_*.py
