@@ -16,6 +16,7 @@ from quasartrend.marketdata import (
 from quasartrend.persistence import PersistenceIdentity, SQLiteCheckpointStore
 from quasartrend.replay import HistoricalBar, ReplayConfig, ReplayEngine, ReplayResult, Timeframe
 from quasartrend.runtime import LiveRuntime, RuntimeConfig, RuntimePersistenceError
+from quasartrend.execution import OrderRejectedError
 
 
 SYMBOL = "BINANCE:BTCUSDT.P"
@@ -326,3 +327,47 @@ def test_persistence_failure_keeps_last_durable_state_and_loop_stops_cooperative
     assert runtime.client.calls[call_count] == (Timeframe.MINUTES_15, 0, 900_000, 2)  # type: ignore[attr-defined]
     stopped = LiveRuntime(_config(), client=_Client(bars), replay_engine=_replay(), identity=_identity(), store=_Store(), clock=_Clock(900_000))
     assert tuple(stopped.polling_loop(lambda: True)) == ()
+
+
+def test_phase6_transition_store_replaces_legacy_checkpoint_and_failure_is_invisible() -> None:
+    class _TransitionStore:
+        def __init__(self) -> None:
+            self.checkpoint = None
+            self.calls = []
+            self.runtime = None
+            self.fail = False
+
+        def load_checkpoint(self, identity):  # type: ignore[no-untyped-def]
+            return self.checkpoint
+
+        def save_transition(self, identity, prior_state, stepped):  # type: ignore[no-untyped-def]
+            assert self.runtime is not None and self.runtime.state == prior_state
+            self.calls.append((prior_state, stepped))
+            if self.fail:
+                raise OSError("combined disk failure")
+            self.checkpoint = SimpleNamespace(state=stepped.state)
+
+    store = _TransitionStore()
+    runtime = LiveRuntime(_config(), client=_Client((_bar(Timeframe.MINUTES_15, 0),)), replay_engine=_replay(), identity=_identity(), store=store, clock=_Clock(900_000))
+    store.runtime = runtime
+    assert len(runtime.poll_once().processed_bars) == 1
+    assert len(store.calls) == 1
+    store.fail = True
+    runtime.clock.value = 1_800_000
+    runtime.client.bars = (_bar(Timeframe.MINUTES_15, 0), _bar(Timeframe.MINUTES_15, 900_000))  # type: ignore[attr-defined]
+    durable = runtime.state
+    with pytest.raises(RuntimePersistenceError):
+        runtime.poll_once()
+    assert runtime.state == durable
+
+
+def test_phase6_typed_execution_error_is_not_wrapped_by_runtime() -> None:
+    class _RejectingStore:
+        def load_checkpoint(self, identity):  # type: ignore[no-untyped-def]
+            return None
+        def save_transition(self, identity, prior, stepped):  # type: ignore[no-untyped-def]
+            raise OrderRejectedError("paper rejection")
+    runtime = LiveRuntime(_config(), client=_Client((_bar(Timeframe.MINUTES_15, 0),)), replay_engine=_replay(), identity=_identity(), store=_RejectingStore(), clock=_Clock(900_000))
+    with pytest.raises(OrderRejectedError):
+        runtime.poll_once()
+    assert runtime.state == _replay().initial_state(SYMBOL)

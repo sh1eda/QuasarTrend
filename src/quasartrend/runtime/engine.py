@@ -17,8 +17,9 @@ from quasartrend.marketdata import (
     MarketDataTransientError,
 )
 from quasartrend.persistence import PersistenceIdentity
-from quasartrend.replay import HistoricalBar, ReplayEngine, ReplayState, ReplayTrace, Timeframe
+from quasartrend.replay import HistoricalBar, ReplayEngine, ReplayState, ReplayStepResult, ReplayTrace, Timeframe
 from quasartrend.strategy import StrategyEvent
+from quasartrend.execution import ExecutionError
 
 from .clock import Clock, SystemClock
 from .models import RuntimeConfig, RuntimePersistenceError
@@ -30,6 +31,19 @@ class CheckpointStore(Protocol):
         ...
 
     def save_checkpoint(self, identity: PersistenceIdentity, state: ReplayState) -> object:
+        ...
+
+
+@runtime_checkable
+class Phase6TransitionStore(Protocol):
+    """Combined replay/execution store used by the Phase 6 paper boundary."""
+
+    def load_checkpoint(self, identity: PersistenceIdentity) -> object | None:
+        ...
+
+    def save_transition(
+        self, identity: PersistenceIdentity, prior_state: ReplayState, stepped: ReplayStepResult,
+    ) -> object:
         ...
 
 
@@ -53,7 +67,7 @@ class LiveRuntime:
         client: MarketDataClient,
         replay_engine: ReplayEngine,
         identity: PersistenceIdentity,
-        store: CheckpointStore,
+        store: CheckpointStore | Phase6TransitionStore,
         clock: Clock | None = None,
         sleeper: Callable[[float], None] | None = None,
     ) -> None:
@@ -119,7 +133,18 @@ class LiveRuntime:
                 continue
             stepped = self.replay_engine.step(candidate_state, bar)
             try:
-                self.store.save_checkpoint(self.identity, stepped.state)
+                if isinstance(self.store, Phase6TransitionStore):
+                    # A combined store durably advances the replay state and
+                    # execution ledger in one transaction.  Never split this
+                    # operation into a Phase 4 checkpoint followed by orders.
+                    self.store.save_transition(self.identity, candidate_state, stepped)
+                else:
+                    self.store.save_checkpoint(self.identity, stepped.state)  # type: ignore[union-attr]
+            except ExecutionError:
+                self._state = candidate_state
+                if processed:
+                    self._bootstrap_pending = False
+                raise
             except Exception as exc:
                 # Do not make the candidate visible: it was never durable.
                 self._state = candidate_state

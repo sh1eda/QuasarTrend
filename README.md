@@ -121,6 +121,56 @@ not persisted by Phase 4.
 
 Later planned work includes Telegram integration and production hardening.
 
+### Phase 6 — deterministic paper execution
+
+Phase 6 adds a separate, **paper/simulated-only** execution boundary.  It has
+no authenticated exchange client, credentials, private REST calls, leverage or
+margin controls, or real-order path.  A future real-execution integration is a
+separate phase and must not reuse this adapter as authorization to trade.
+
+`TRADE_OPENED` becomes an entry intent and `TRADE_CLOSED` becomes an exit
+intent (or stop intent when its reason is `EXIT_STOP`). `STOP_HIT` remains a
+diagnostic event, so a stop produces exactly one close intent. Intents include
+the symbol, Phase 4 configuration fingerprint, source processing key, event
+ordinal/type, and strategy trade ID. Their IDs, orders, fills, and position
+IDs are domain-separated canonical-JSON SHA-256 values; neither wall-clock
+time nor random UUIDs participates in replay behavior.
+
+The default `finalized-event-v1` paper model uses only the finalized canonical
+`StrategyEvent.price`: an order is accepted then completely filled on that
+same deterministic transition. The optional test policy may leave it accepted
+and unfilled or reject it. There are no partial fills. Slippage is adverse
+(long entries higher, long exits/stops lower; reversed for shorts), and fee is
+`execution_price * quantity * fee_bps / 10_000`. `PaperExecutionConfig` is a
+new, distinct configuration; Phase 3 `BacktestConfig` and its historical
+accounting remain unchanged.
+
+The paper adapter is exchange-independent and keeps its own immutable adapter
+state plus typed `ACCEPTED`, `REJECTED`, and `FILLED` events. `DEFER` (durable
+`NEW`) and `ACCEPT_ONLY` (durable `ACCEPTED`) are deterministic simulation/test
+behaviors, not exchange connectivity or a real-order capability. Outstanding
+orders block later candle advancement; a durable rejection is retained for
+diagnostics and causes later advancement to fail closed. Adapter events may be
+applied atomically after restart, so an accepted paper order can later fill
+without a replayed strategy decision.
+
+The Phase 6 `SQLiteExecutionStore` is separate from the Phase 4 checkpoint
+schema. For each finalized source bar the runtime invokes its combined
+`save_transition(identity, prior_state, ReplayStepResult)` before making the
+candidate replay state visible. One `BEGIN IMMEDIATE` / `synchronous=FULL`
+transaction persists the replay state, execution ledger, and paper-adapter
+snapshot, eliminating the execution-ahead/lost-close window. A persistence
+failure leaves both durable and in-memory state at the prior candle. A missing
+combined checkpoint may bootstrap only from the initial replay state; restoring
+an arbitrary noninitial replay state without its execution ledger is rejected.
+
+On load, the store reconciles its durable ledger with its durable adapter
+snapshot (orders/statuses, fills, and position). `reconcile(observed)` is also
+available for deterministic external snapshot checks; any missing, extra, or
+conflicting state raises a typed mismatch and is never repaired silently.
+Rows and all execution IDs are symbol scoped, so interleaved symbols do not
+share positions or orders.
+
 ### Phase 5 — PASS
 
 Phase 5 adds a narrow, dependency-free REST polling boundary for Binance USD-M
