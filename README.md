@@ -119,9 +119,55 @@ prefix and resumed-suffix replay traces, then run the existing event-only
 backtest over both complete trace sequences. Backtest accounting/results are
 not persisted by Phase 4.
 
-Later planned work includes live market data, Telegram integration, and
-production hardening. These capabilities are not implemented in the current
-repository.
+Later planned work includes Telegram integration and production hardening.
+
+### Phase 5 — PASS
+
+Phase 5 adds a narrow, dependency-free REST polling boundary for Binance USD-M
+public klines. `BinanceUSDMClient` calls `GET /fapi/v1/klines` with no API key
+or authenticated trading capability. It maps an explicitly configured exchange
+symbol (for example `BTCUSDT`) back to the durable QuasarTrend domain symbol
+(`BINANCE:BTCUSDT.P`) and returns only validated `HistoricalBar` values. The
+live runtime depends on the generic `MarketDataClient` protocol rather than on
+Binance HTTP details.
+
+All runtime timestamps are UTC epoch milliseconds. A source bar is legal only
+when `bar.open_time + bar.timeframe.duration_ms <= clock.now_ms()`; equality is
+legal. Poll requests include the aligned current/open bucket so a returned
+exchange kline is fully validated, but that optional unfinished bar is excluded
+before the frozen `ReplayEngine` sees it; its absence is not a cadence gap.
+Each accepted bar goes through `ReplayEngine.step`
+and is checkpointed before runtime memory and output advance. No direct live
+`StrategyEngine` path exists.
+
+A fresh runtime fetches the exact finalized suffix configured for each stream:
+600 15-minute bars and 600 4-hour bars by default. The 4-hour count retains
+margin above the observed full cold-convergence start at row 507. A recovered
+Phase 4 checkpoint is loaded once and resumes from its existing recursive
+state; it fetches one consumed overlap where available and suppresses all
+processing keys at or before the stored cursor. Catch-up is paginated with a
+default page size of 1,000 and a maximum of 10,000 candles per timeframe.
+Every aligned, legally finalized open time in a requested range must be present:
+a missing page, hole, duplicate, or out-of-order response raises an explicit
+market-data gap/error rather than advancing the cursor.
+
+The runtime merges independently validated 15m and 4h responses by the frozen
+processing key. At a shared finalization boundary, 4h is always processed before
+15m. Public HTTP 408, 429, and 5xx responses plus connection/timeout failures
+are transient and get at most four deterministic attempts with 0.2s, 0.4s,
+and 0.8s base delays (respecting a larger `Retry-After`). Other 4xx and malformed
+responses are permanent and receive no retry. Callers receive canonical
+processed bars, replay traces, strategy events, and the current replay state.
+`polling_loop` is cooperative: it checks a caller-provided stop callback at poll
+boundaries and exits without an additional fetch or sleep once stopped.
+
+This phase only produces deterministic signal-domain events. It does not place
+orders, maintain exchange positions, use websockets, send Telegram/alerts, add
+ADR context, or optimize entries; those concerns remain outside Phase 5.
+
+The Phase 5 gate is verified at **250 passed**. The local TradingView golden
+audits remain unchanged: 10,452 15m rows and 8,480 4H rows, with zero source,
+OHLC, seeded-recurrence, or cold-start-convergence mismatches.
 
 ## Architecture
 
@@ -142,7 +188,9 @@ QuasarTrend/
 │       ├── strategy/           # Deterministic Phase 2 strategy state machine
 │       ├── replay/             # Closed-candle chronological MTF replay
 │       ├── backtest/           # Event-only deterministic accounting/metrics
-│       └── persistence/        # SQLite replay checkpoints and strict codec
+│       ├── persistence/        # SQLite replay checkpoints and strict codec
+│       ├── marketdata/         # Validated public exchange data boundary
+│       └── runtime/            # Closed-candle polling and checkpoint timing
 ├── tests/
 │   ├── golden/                 # Tracked export instructions; CSV exports stay local
 │   └── test_*.py
