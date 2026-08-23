@@ -1,0 +1,96 @@
+//@version=6
+indicator("QuasarTrend Phase 1 Parity Export", overlay=false)
+
+fastLength = input.int(20, "HEMA Fast")
+slowLength = input.int(40, "HEMA Slow")
+kalmanAlpha = input.float(0.01, "Kalman Alpha")
+kalmanBeta = input.float(0.1, "Kalman Beta")
+kalmanPeriod = input.int(21, "Kalman Period")
+supertrendFactor = input.float(1.0, "Supertrend Factor")
+supertrendAtrPeriod = input.int(7, "Supertrend ATR Period")
+
+// Each helper is invoked exactly once per configured call site. Do not add
+// diagnostic re-calls: Pine recursive state belongs to the written call site.
+hema_trace(src, length) =>
+    halfLength = math.max(1, math.round(length / 2))
+    sqrtLength = math.max(1, math.round(math.sqrt(length)))
+    emaHalf = ta.ema(src, halfLength)
+    emaFull = ta.ema(src, length)
+    diff = 2 * emaHalf - emaFull
+    value = ta.ema(diff, sqrtLength)
+    [emaHalf, emaFull, diff, value]
+
+kalman_trace(a, b, alpha, beta) =>
+    var float v1 = na
+    var float v2 = 1.0
+    var float v3 = alpha * b
+    var float v4 = 0.0
+    var float v5 = na
+    if na(v1)
+        v1 := a[1]
+    v5 := v1
+    v4 := v2 / (v2 + v3)
+    v1 := v5 + v4 * (a - v5)
+    v2 := (1 - v4) * v2 + beta / b
+    [v1, v2, v3, v4, v5]
+
+supertrend_trace(k, factor, atrPeriod) =>
+    atr = ta.atr(atrPeriod)
+    rawUpper = k + factor * atr
+    rawLower = k - factor * atr
+    upperBand = rawUpper
+    lowerBand = rawLower
+    prevLowerBand = nz(lowerBand[1])
+    prevUpperBand = nz(upperBand[1])
+    lowerBand := lowerBand > prevLowerBand or k[1] < prevLowerBand ? lowerBand : prevLowerBand
+    upperBand := upperBand < prevUpperBand or k[1] > prevUpperBand ? upperBand : prevUpperBand
+    int direction = na
+    float superTrend = na
+    prevSuperTrend = superTrend[1]
+    if na(atr[1])
+        direction := 1
+    else if prevSuperTrend == prevUpperBand
+        direction := k > upperBand ? -1 : 1
+    else
+        direction := k < lowerBand ? 1 : -1
+    superTrend := direction == -1 ? lowerBand : upperBand
+    [atr, rawUpper, rawLower, upperBand, lowerBand, prevUpperBand, prevLowerBand, prevSuperTrend, superTrend, direction]
+
+[fastHalf, fastFull, fastDiff, fastHema] = hema_trace(close, fastLength)
+[slowHalf, slowFull, slowDiff, slowHema] = hema_trace(close, slowLength)
+[kV1, kV2, kV3, kV4, kV5] = kalman_trace(close, kalmanPeriod, kalmanAlpha, kalmanBeta)
+[stAtr, rawUpper, rawLower, upperBand, lowerBand, prevUpper, prevLower, prevST, supertrend, direction] = supertrend_trace(kV1, supertrendFactor, supertrendAtrPeriod)
+
+plot(time, "timestamp")
+plot(open, "open")
+plot(high, "high")
+plot(low, "low")
+plot(close, "close")
+plot(fastHalf, "fast.half_ema")
+plot(fastFull, "fast.full_ema")
+plot(fastDiff, "fast.difference")
+plot(fastHema, "fast.value")
+plot(slowHalf, "slow.half_ema")
+plot(slowFull, "slow.full_ema")
+plot(slowDiff, "slow.difference")
+plot(slowHema, "slow.value")
+plot(ta.crossover(fastHema, slowHema) ? 1 : 0, "bullish_cross")
+plot(ta.crossunder(fastHema, slowHema) ? 1 : 0, "bearish_cross")
+plot(kV1, "kalman.v1")
+plot(kV2, "kalman.v2")
+plot(kV3, "kalman.v3")
+plot(kV4, "kalman.v4")
+plot(kV5, "kalman.v5")
+plot(stAtr, "atr")
+plot(rawUpper, "raw_upper_band")
+plot(rawLower, "raw_lower_band")
+plot(upperBand, "upper_band")
+plot(lowerBand, "lower_band")
+plot(prevUpper, "previous_upper_band")
+plot(prevLower, "previous_lower_band")
+plot(prevST, "previous_supertrend")
+plot(supertrend, "supertrend")
+plot(direction, "direction")
+plot(ta.crossunder(direction, 0) ? 1 : 0, "bullish_transition")
+plot(ta.crossover(direction, 0) ? 1 : 0, "bearish_transition")
+

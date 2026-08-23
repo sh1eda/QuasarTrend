@@ -1,0 +1,88 @@
+//@version=6
+indicator("Kalman Step Signals", "Kalman Step", true)
+
+groupKalman = "Kalman Filter"
+kalmanAlpha = input.float(0.01, title="Kalman Alpha", tooltip="The Alpha parameter controls the smoothing factor of the Kalman filter. A smaller value results in more smoothing, while a larger value makes the filter more responsive to price changes.", group=groupKalman)
+kalmanBeta = input.float(0.1, title="Kalman Beta", tooltip="The Beta parameter influences the rate of change in the Kalman filter. It adjusts the filter's sensitivity to trend changes.", group=groupKalman)
+kalmanPeriod = input.int(21, title="Kalman Period", tooltip="The Period defines the number of bars used in the Kalman filter calculation, affecting the filter's responsiveness to market movements.", group=groupKalman)
+
+groupSupertrend = "Supertrend"
+supertrendFactor = input.float(1, title="Supertrend Factor", tooltip="This Factor determines the multiplier for the ATR in the Supertrend calculation, affecting the distance of the trend line from the price.", group=groupSupertrend)
+supertrendAtrPeriod = input.int(7, title="ATR Period", tooltip="The ATR Period specifies the number of bars used to calculate the Average True Range, which is a component of the Supertrend indicator.", group=groupSupertrend)
+
+groupColors = "Colors"
+green = input.color(#5b9cf6, title="Bullish Color", tooltip="This color is used to indicate a bullish trend in the chart.", group=groupColors)
+red = input.color(#ffb74d, title="Bearish Color", tooltip="This color is used to indicate a bearish trend in the chart.", group=groupColors)
+
+kalman(a, b, alpha, beta) =>
+    var float v1 = na
+    var float v2 = 1.0
+    var float v3 = alpha * b
+    var float v4 = 0.0
+    var float v5 = na
+
+    if na(v1)
+        v1 := a[1]
+
+    v5 := v1
+    v4 := v2 / (v2 + v3)
+    v1 := v5 + v4 * (a - v5)
+    v2 := (1 - v4) * v2 + beta / b
+
+    v1
+
+pine_supertrend(k, factor, atrPeriod) =>
+    src = k
+    atr = ta.atr(atrPeriod)
+    upperBand = src + factor * atr
+    lowerBand = src - factor * atr
+    prevLowerBand = nz(lowerBand[1])
+    prevUpperBand = nz(upperBand[1])
+
+    lowerBand := lowerBand > prevLowerBand or k[1] < prevLowerBand ? lowerBand : prevLowerBand
+    upperBand := upperBand < prevUpperBand or k[1] > prevUpperBand ? upperBand : prevUpperBand
+    int _direction = na
+    float superTrend = na
+    prevSuperTrend = superTrend[1]
+    if na(atr[1])
+        _direction := 1
+    else if prevSuperTrend == prevUpperBand
+        _direction := k > upperBand ? -1 : 1
+    else
+        _direction := k < lowerBand ? 1 : -1
+    superTrend := _direction == -1 ? lowerBand : upperBand
+    [superTrend, _direction]
+
+k = kalman(close, kalmanPeriod, kalmanAlpha, kalmanBeta)
+
+[Pine_Supertrend, pineDirection] = pine_supertrend(k, supertrendFactor, supertrendAtrPeriod)
+
+upTrend = plot(pineDirection < 0 ? Pine_Supertrend : na, "Up direction", color = color.new(green, 70), style=plot.style_linebr)
+downTrend = plot(pineDirection > 0 ? Pine_Supertrend : na, "Down direction", color = color.new(red, 70), style=plot.style_linebr)
+bodyMiddle = plot(barstate.isfirst ? na : (open + close) / 2, "Body Middle", display = display.none)
+
+uu = plot(pineDirection < 0 ? Pine_Supertrend + ta.ema(high - low, 70) * 5 : na, "Upper Exit Bands Upper Bound", red, style = plot.style_linebr)
+ul = plot(pineDirection < 0 ? Pine_Supertrend + ta.ema(high - low, 70) * 4.5 : na, "Upper Exit Bands Lower Bound", red, style = plot.style_linebr, display = display.none)
+
+fill(uu, ul, Pine_Supertrend + ta.ema(high - low, 70) * 4.5, Pine_Supertrend + ta.ema(high - low, 70) * 5, color.new(red, 95), color.new(red, 70))
+
+lu = plot(pineDirection > 0 ? Pine_Supertrend - ta.ema(high - low, 70) * 4.5 : na, "Lower Exit Bands Upper Bound", green, style = plot.style_linebr, display = display.none)
+ll = plot(pineDirection > 0 ? Pine_Supertrend - ta.ema(high - low, 70) * 5 : na, "Lower Exit Bands Lower Bound", green, style = plot.style_linebr)
+
+fill(lu, ll, Pine_Supertrend - ta.ema(high - low, 70) * 5, Pine_Supertrend - ta.ema(high - low, 70) * 4.5, color.new(green, 95), color.new(green, 70))
+
+fill(bodyMiddle, upTrend, (open + close) / 2, Pine_Supertrend, color.new(green, 95), color.new(green, 70))
+fill(bodyMiddle, downTrend, Pine_Supertrend, (open + close) / 2, color.new(red, 70), color.new(red, 95))
+
+plotchar(pineDirection < 0 and low < Pine_Supertrend and math.min(open, close) > Pine_Supertrend ? low : na, "Bullish Rejection Entry", "▲", location.absolute, green, size = size.tiny)
+plotchar(pineDirection > 0 and high > Pine_Supertrend and math.max(open, close) < Pine_Supertrend ? high : na, "Bearish Rejection Entry", "▼", location.absolute, red, size = size.tiny)
+
+plotshape(ta.crossunder(pineDirection, 0) ? Pine_Supertrend : na, "Bullish Trend", shape.labelup, location.absolute, green, text = "▲", textcolor = chart.fg_color, size = size.small)
+plotshape(ta.crossover(pineDirection, 0) ? Pine_Supertrend : na, "Bearish Trend", shape.labeldown, location.absolute, red, text = "▼", textcolor = chart.fg_color, size = size.small)
+
+// Alert conditions for trend changes and rejection entries
+alertcondition(ta.crossunder(pineDirection, 0), title="Bullish Trend Change", message="Bullish trend change detected.")
+alertcondition(ta.crossover(pineDirection, 0), title="Bearish Trend Change", message="Bearish trend change detected.")
+alertcondition(pineDirection < 0 and low < Pine_Supertrend and math.min(open, close) > Pine_Supertrend, title="Bullish Rejection Entry", message="Bullish rejection entry detected.")
+alertcondition(pineDirection > 0 and high > Pine_Supertrend and math.max(open, close) < Pine_Supertrend, title="Bearish Rejection Entry", message="Bearish rejection entry detected.")
+

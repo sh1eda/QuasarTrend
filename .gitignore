@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Runtime / databases
+*.db
+*.sqlite
+*.sqlite3
+logs/
+*.log
+
+# Local state / checkpoints
+state/
+checkpoints/
+
+# Trading / private exports
+data/
+exports/
+
+# TradingView golden datasets
+# Keep documentation, do not commit raw exported market datasets
+tests/golden/*.csv
+!tests/golden/README.md
+
+# Secrets / credentials
+secrets/
+*.pem
+*.key
+
+# Temporary
+tmp/
+temp/
+*.tmp
