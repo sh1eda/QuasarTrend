@@ -20,6 +20,11 @@ from quasartrend.indicators.pine import dumps_checkpoint, loads_checkpoint
 
 
 EXPORTS = sorted((Path(__file__).parent / "golden").glob("*.csv"))
+FIFTEEN_MINUTE_EXPORT = Path(__file__).parent / "golden" / "tradingview_15m.csv"
+REQUIRES_15M_EXPORT = pytest.mark.skipif(
+    not FIFTEEN_MINUTE_EXPORT.exists(),
+    reason="external TradingView 15m golden CSV export is not available",
+)
 EXPORT_ROW_COUNTS = {
     "tradingview_15m": 10_452,
     "tradingview_4h": 8_480,
@@ -117,6 +122,7 @@ def test_exact_export_field_domain_rejects_fractional_nonfinite_na_and_out_of_do
         _parse_exact_field(value, name, context="test")
 
 
+@REQUIRES_15M_EXPORT
 def test_declared_15m_export_rejects_uniform_thirty_minute_cadence(tmp_path: Path) -> None:
     def rewrite(header: list[str], rows: list[list[str]]) -> None:
         time_index = header.index("time")
@@ -127,11 +133,12 @@ def test_declared_15m_export_rejects_uniform_thirty_minute_cadence(tmp_path: Pat
             row[time_index] = str(time_seconds)
             row[timestamp_index] = str(time_seconds * 1_000)
 
-    path = _rewrite_export(tmp_path, Path("tests/golden/tradingview_15m.csv"), rewrite)
+    path = _rewrite_export(tmp_path, FIFTEEN_MINUTE_EXPORT, rewrite)
     with pytest.raises(ValueError, match="declared 15m export"):
         load_tradingview_export(path)
 
 
+@REQUIRES_15M_EXPORT
 def test_export_rejects_undeclared_filename_even_with_uniform_thirty_minute_cadence(tmp_path: Path) -> None:
     def rewrite(header: list[str], rows: list[list[str]]) -> None:
         time_index = header.index("time")
@@ -143,16 +150,17 @@ def test_export_rejects_undeclared_filename_even_with_uniform_thirty_minute_cade
             row[timestamp_index] = str(time_seconds * 1_000)
 
     path = _rewrite_export(
-        tmp_path, Path("tests/golden/tradingview_15m.csv"), rewrite, filename="renamed.csv",
+        tmp_path, FIFTEEN_MINUTE_EXPORT, rewrite, filename="renamed.csv",
     )
     with pytest.raises(ValueError, match="must declare exactly one supported timeframe"):
         load_tradingview_export(path)
 
 
+@REQUIRES_15M_EXPORT
 def test_export_rejects_ambiguous_declared_timeframe_filename(tmp_path: Path) -> None:
     path = _rewrite_export(
         tmp_path,
-        Path("tests/golden/tradingview_15m.csv"),
+        FIFTEEN_MINUTE_EXPORT,
         lambda _header, _rows: None,
         filename="tradingview_15m_4h.csv",
     )
@@ -160,41 +168,45 @@ def test_export_rejects_ambiguous_declared_timeframe_filename(tmp_path: Path) ->
         load_tradingview_export(path)
 
 
+@REQUIRES_15M_EXPORT
 def test_export_rejects_non_increasing_timestamps(tmp_path: Path) -> None:
     path = _rewrite_export(
         tmp_path,
-        Path("tests/golden/tradingview_15m.csv"),
+        FIFTEEN_MINUTE_EXPORT,
         lambda _header, rows: rows.reverse(),
     )
     with pytest.raises(ValueError, match="timestamps must be strictly increasing"):
         load_tradingview_export(path)
 
 
+@REQUIRES_15M_EXPORT
 def test_export_rejects_fractional_exact_crossover_value(tmp_path: Path) -> None:
     def rewrite(header: list[str], rows: list[list[str]]) -> None:
         rows[0][header.index("bullish_cross")] = "0.5"
 
-    path = _rewrite_export(tmp_path, Path("tests/golden/tradingview_15m.csv"), rewrite)
+    path = _rewrite_export(tmp_path, FIFTEEN_MINUTE_EXPORT, rewrite)
     with pytest.raises(ValueError, match="bullish_cross must be an integer"):
         load_tradingview_export(path)
 
 
+@REQUIRES_15M_EXPORT
 def test_export_rejects_duplicate_ohlc_infinities_even_when_they_match(tmp_path: Path) -> None:
     def rewrite(header: list[str], rows: list[list[str]]) -> None:
         for index in [index for index, name in enumerate(header) if name == "open"]:
             rows[0][index] = "Infinity"
 
-    path = _rewrite_export(tmp_path, Path("tests/golden/tradingview_15m.csv"), rewrite)
+    path = _rewrite_export(tmp_path, FIFTEEN_MINUTE_EXPORT, rewrite)
     with pytest.raises(ValueError, match="open: expected a finite number"):
         load_tradingview_export(path)
 
 
+@REQUIRES_15M_EXPORT
 def test_export_rejects_duplicate_ohlc_values_that_overflow_python_float(tmp_path: Path) -> None:
     def rewrite(header: list[str], rows: list[list[str]]) -> None:
         for index in [index for index, name in enumerate(header) if name == "open"]:
             rows[0][index] = "1e1000000"
 
-    path = _rewrite_export(tmp_path, Path("tests/golden/tradingview_15m.csv"), rewrite)
+    path = _rewrite_export(tmp_path, FIFTEEN_MINUTE_EXPORT, rewrite)
     with pytest.raises(ValueError, match="open: not representable as a finite Python float"):
         load_tradingview_export(path)
 

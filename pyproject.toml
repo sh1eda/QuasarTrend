@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "quasartrend"
 version = "0.1.0"
-description = "PineScript-compatible indicator implementations for QuasarTrend"
+description = "PineScript-compatible indicators and a deterministic historical strategy engine"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
@@ -21,4 +21,3 @@ testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quasartrend"]
-
