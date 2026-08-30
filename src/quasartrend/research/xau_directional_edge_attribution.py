@@ -69,6 +69,12 @@ DOMINANCE = 0.50
 ASSOCIATION = 0.25
 SMALL_SAMPLE_WARNING = "SMALL-SAMPLE / DESCRIPTIVE ONLY"
 
+# The cache contains only canonical JSON bytes produced by a full canonical
+# replay, never caller-owned mutable ledgers.  It avoids repeating the same
+# 822k-bar replay during a single verifier/test process while preserving a
+# full replay for each new source/protocol/implementation identity.
+_FROZEN_REPLAY_EXPECTATION_CACHE: dict[tuple[str, ...], tuple[bytes, bytes, bytes, bytes]] = {}
+
 
 def _hash(path: Path) -> str:
     digest = sha256()
@@ -466,6 +472,8 @@ def _enriched_ledger(rows: Sequence[Mapping[str, Any]], replay: Any, context_row
     result: list[dict[str, Any]] = []
     for original in rows:
         row = dict(original)
+        if bool(row.get("stop_hit")) != ("exit_stop" in row.get("exit_reasons", [])):
+            raise ValueError("frozen ledger stop membership mismatch")
         context = contexts.get(int(row["setup_origin_timestamp"]))
         if context is None:
             raise ValueError("closed/opened trade lacks setup-origin context")
@@ -477,7 +485,12 @@ def _enriched_ledger(rows: Sequence[Mapping[str, Any]], replay: Any, context_row
         row["bias_persistence_hours_bucket"] = tertile_bin(context["bias_persistence_hours"], float(families["bias_persistence_hours"]["q1"]), float(families["bias_persistence_hours"]["q2"]))
         row["atr_at_setup_bucket"] = tertile_bin(context["atr_at_setup"], float(families["atr_at_setup"]["q1"]), float(families["atr_at_setup"]["q2"]))
         row["broad_market_direction_32_bucket"] = context["broad_market_direction_32"]
+        # A non-contiguous path has no full-exit-bar excursion measurement.
+        # Preserve the frozen MFE only long enough to reconcile the contiguous
+        # calculation; publish MFE and MAE as a paired missing value otherwise.
+        frozen_mfe = row.get("mfe_r")
         row["holding_duration_minutes"] = None
+        row["mfe_r"] = None
         row["mae_r"] = None
         if row["outcome"] == "closed":
             entry = by_timestamp.get(int(row["entry_timestamp"])); exit_ = by_timestamp.get(int(row["exit_timestamp"]))
@@ -495,7 +508,7 @@ def _enriched_ledger(rows: Sequence[Mapping[str, Any]], replay: Any, context_row
                     mfe, mae = max(0.0, high - float(row["entry_price"])) / risk, max(0.0, float(row["entry_price"]) - low) / risk
                 else:
                     mfe, mae = max(0.0, float(row["entry_price"]) - low) / risk, max(0.0, high - float(row["entry_price"])) / risk
-                if row["mfe_r"] is not None and not math.isclose(mfe, float(row["mfe_r"]), rel_tol=1e-12, abs_tol=1e-12):
+                if frozen_mfe is not None and not math.isclose(mfe, float(frozen_mfe), rel_tol=1e-12, abs_tol=1e-12):
                     raise ValueError("full-exit-bar MFE differs from frozen ledger")
                 row["mfe_r"], row["mae_r"] = mfe, mae
         result.append(row)
@@ -862,7 +875,11 @@ def _reconcile_closed_ledger(items: Sequence[Mapping[str, Any]], contexts: Seque
             raise ValueError("closed ledger setup context mismatch")
         for name in ("bias_persistence_hours", "atr_at_setup", "broad_market_direction_32", "bias_persistence_hours_bucket", "atr_at_setup_bucket", "broad_market_direction_32_bucket"):
             if row.get(name) != context[name]: raise ValueError("closed ledger context value mismatch")
-        if row.get("mfe_r") is not None and (float(row["mfe_r"]) < 0 or float(row.get("mae_r", -1)) < 0):
+        if bool(row.get("stop_hit")) != ("exit_stop" in row.get("exit_reasons", [])):
+            raise ValueError("closed ledger stop membership mismatch")
+        if (row.get("mfe_r") is None) != (row.get("mae_r") is None):
+            raise ValueError("closed ledger missing path MFE/MAE must be paired")
+        if row.get("mfe_r") is not None and (float(row["mfe_r"]) < 0 or float(row["mae_r"]) < 0):
             raise ValueError("closed ledger excursion must be nonnegative")
     return rows
 
@@ -870,6 +887,55 @@ def _reconcile_closed_ledger(items: Sequence[Mapping[str, Any]], contexts: Seque
 def _assert_exact_section(actual: Any, expected: Any, name: str) -> None:
     if canonical_json(actual) != canonical_json(expected):
         raise ValueError(f"result {name} reconciliation mismatch")
+
+
+def _verify_submitted_ledger_against_frozen_replay(result: Mapping[str, Any], root: Path) -> None:
+    """Bind a submitted result to exact canonical-source replay identity."""
+    canonical_source = (root / RAW_SOURCE_PATH).resolve()
+    if _hash(canonical_source) != EXPECTED_SOURCE_SHA256[RAW_SOURCE_PATH]:
+        raise ValueError("canonical raw source identity mismatch during result verification")
+    protocol_path = root / "exports/xm/phase_xau_directional_edge_attribution_protocol.json"
+    protocol_payload = protocol_path.read_bytes()
+    if sha256(protocol_payload).hexdigest() != EXPECTED_PROTOCOL_SHA256:
+        raise ValueError("result verifier protocol bytes differ from pinned lock")
+    protocol = json.loads(protocol_payload)
+    verify_xau_directional_edge_attribution_protocol(protocol)
+    actual_sources = {path: _hash(root / path) for path in EXPECTED_SOURCE_SHA256}
+    if actual_sources != EXPECTED_SOURCE_SHA256:
+        raise ValueError("result verifier frozen source identities mismatch")
+    source_identities = tuple(f"{path}:{actual_sources[path]}" for path in sorted(actual_sources))
+    historical.verify_frozen_production_sources(root)
+    cache_key = (
+        str(root), sha256(protocol_payload).hexdigest(),
+        _hash(Path(__file__).resolve()), _hash(Path(historical.__file__).resolve()),
+        *source_identities,
+    )
+    expected = _FROZEN_REPLAY_EXPECTATION_CACHE.get(cache_key)
+    if expected is None:
+        raw = historical._load_full_xm_m1(canonical_source)
+        ltf, htf, _excluded, aggregation = historical._replay_inputs(raw)
+        replay, warmup = historical._run_warmed_replay(ltf, htf)
+        rows, setups, observed = historical._ledger(replay)
+        _assert_historical_reproduction(rows, setups, observed, root)
+        contexts, population = extract_setup_contexts(replay)
+        if population != EXPECTED_POPULATION or _context_lock_from_contexts(contexts, population, int(warmup["first_strategy_eligible_timestamp"])) != EXPECTED_CONTEXT_LOCK:
+            raise ValueError("canonical replay context/population mismatch")
+        expected = (
+            (canonical_json(_eligible_setup_context_ledger(contexts, protocol)) + "\n").encode("utf-8"),
+            (canonical_json(_enriched_ledger(rows, replay, contexts, protocol)) + "\n").encode("utf-8"),
+            xau_directional_edge_attribution_json(warmup),
+            xau_directional_edge_attribution_json(aggregation),
+        )
+        _FROZEN_REPLAY_EXPECTATION_CACHE[cache_key] = expected
+    expected_contexts = json.loads(expected[0])
+    expected_rows = json.loads(expected[1])
+    warmup = json.loads(expected[2])
+    aggregation = json.loads(expected[3])
+    _assert_exact_section(result["eligible_setup_context_ledger"], expected_contexts, "frozen replay context ledger")
+    _assert_exact_section(result["enriched_closed_trade_ledger"], expected_rows, "frozen replay enriched ledger")
+    reproduction = result["population_reproduction"]
+    if reproduction.get("warmup") != warmup or reproduction.get("aggregation") != aggregation or reproduction.get("historical_ledger_identity") != "exact":
+        raise ValueError("result warmup/aggregation/historical ledger reproduction mismatch")
 
 
 def verify_xau_directional_edge_attribution_result(result: Mapping[str, Any], *, repo_root: Path = Path(".")) -> None:
@@ -905,9 +971,24 @@ def verify_xau_directional_edge_attribution_result(result: Mapping[str, Any], *,
         raise ValueError("result restriction state mismatch")
     if "No counterfactual strategy variant" not in str(result["non_optimization"]):
         raise ValueError("result non-optimization declaration mismatch")
+    if not isinstance(metadata.get("execution_head_sha"), str) or len(metadata["execution_head_sha"]) != 40:
+        raise ValueError("result execution HEAD metadata mismatch")
     root = repo_root.resolve()
-    if _hash(root / COMPATIBILITY_RESULT_PATH) != EXPECTED_SOURCE_SHA256[COMPATIBILITY_RESULT_PATH]:
-        raise ValueError("frozen compatibility artifact identity mismatch")
+    try:
+        execution_head = _git_output(root, "rev-parse", f"{metadata['execution_head_sha']}^{{commit}}")
+    except subprocess.CalledProcessError as error:
+        raise ValueError("result execution HEAD cannot be resolved to a commit") from error
+    if execution_head != metadata["execution_head_sha"]:
+        raise ValueError("result execution HEAD must be a full commit identity")
+    if _git_output(root, "rev-parse", CANONICAL_TAG) != CANONICAL_TAG_OBJECT or _git_output(root, "rev-parse", f"{CANONICAL_TAG}^{{}}") != CANONICAL_STARTING_SHA:
+        raise ValueError("result canonical annotated tag mismatch")
+    for ancestor in (CANONICAL_STARTING_SHA, PROTOCOL_COMMIT_SHA):
+        if subprocess.run(("git", "merge-base", "--is-ancestor", ancestor, execution_head), cwd=root).returncode:
+            raise ValueError("result execution HEAD lacks required canonical/protocol ancestry")
+    if subprocess.run(("git", "merge-base", "--is-ancestor", execution_head, "HEAD"), cwd=root).returncode:
+        raise ValueError("result execution HEAD is not an ancestor of verifier HEAD")
+    if {_path: _hash(root / _path) for _path in EXPECTED_SOURCE_SHA256} != EXPECTED_SOURCE_SHA256:
+        raise ValueError("result verifier frozen source identities mismatch")
     contexts = _reconcile_context_ledger(result["eligible_setup_context_ledger"])
     rows = _reconcile_closed_ledger(result["enriched_closed_trade_ledger"], contexts)
     directional, calendar = _by_direction(rows, contexts), _calendar_tables(rows)
@@ -930,6 +1011,7 @@ def verify_xau_directional_edge_attribution_result(result: Mapping[str, Any], *,
     }
     for name, expected in expected_sections.items(): _assert_exact_section(result[name], expected, name)
     _assert_exact_section(population["headline_reproduction"], headlines, "headline reproduction")
+    _verify_submitted_ledger_against_frozen_replay(result, root)
 
 
 def write_xau_directional_edge_attribution_result(result: Mapping[str, Any], path: Path, *, repo_root: Path = Path(".")) -> str:

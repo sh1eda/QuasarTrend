@@ -99,6 +99,17 @@ def test_actual_artifact_is_pinned_and_exact_semantic_lock() -> None:
     assert protocol == stage_a.build_xau_directional_edge_attribution_protocol(protocol["frozen_inputs"]["context_lock"])
 
 
+def test_committed_stage_b_result_hash_and_historical_execution_verify() -> None:
+    path = Path(stage_a.RESULT_PATH)
+    payload = path.read_bytes()
+    assert __import__("hashlib").sha256(payload).hexdigest() == "747402a144eaab959b7dc2d6432c0c894f5bc2104833bcd98851cc1188030e3d"
+    result = json.loads(payload)
+    assert result["metadata"]["execution_head_sha"] == "e74cd3843c047b92ca76e13e05c57f72c5f96209"
+    # Verification intentionally permits the execution snapshot to be an
+    # ancestor of a later verifier HEAD (the current commit is test-only).
+    stage_a.verify_xau_directional_edge_attribution_result(result)
+
+
 @pytest.mark.parametrize("field", ["canonical_starting_state", "classification", "forbidden_analyses"])
 def test_pinned_verifier_rejects_canonical_semantic_tampering(field: str) -> None:
     protocol = json.loads(Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json").read_bytes())
@@ -148,7 +159,7 @@ def stage_b_result() -> dict[str, object]:
     protocol = json.loads(Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json").read_bytes())
     return stage_a._build_xau_directional_edge_attribution_result_unchecked(
         repo_root=Path("."), xm_m1_source=Path(stage_a.RAW_SOURCE_PATH), protocol=protocol,
-        guard={"head": "test", "source_sha256": stage_a.EXPECTED_SOURCE_SHA256},
+        guard={"head": stage_a._git_output(Path("."), "rev-parse", "HEAD"), "source_sha256": stage_a.EXPECTED_SOURCE_SHA256},
     )
 
 
@@ -211,16 +222,20 @@ def test_one_sided_composition_is_unavailable_and_distribution_missing_is_null()
     assert stage_a._cell(stage_a._metrics([]))["sample_warning"] == "SMALL-SAMPLE / DESCRIPTIVE ONLY"
 
 
-def test_result_verifier_serializer_tamper_and_overwrite(stage_b_result: dict[str, object], tmp_path: Path) -> None:
-    stage_a.verify_xau_directional_edge_attribution_result(stage_b_result)
+def test_result_verifier_serializer_tamper_and_overwrite(stage_b_result: dict[str, object], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    verifier = stage_a.verify_xau_directional_edge_attribution_result
+    verifier(stage_b_result)
     payload = stage_a.xau_directional_edge_attribution_json(stage_b_result)
     assert payload.endswith(b"\n") and payload == stage_a.xau_directional_edge_attribution_json(stage_b_result)
     path = tmp_path / "result.json"
+    # The preceding public verifier call is the canonical-replay integration
+    # check; isolate writer overwrite mechanics from a second canonical replay.
+    monkeypatch.setattr(stage_a, "verify_xau_directional_edge_attribution_result", lambda *_args, **_kwargs: None)
     assert stage_a.write_xau_directional_edge_attribution_result(stage_b_result, path) == __import__("hashlib").sha256(payload).hexdigest()
     with pytest.raises(FileExistsError): stage_a.write_xau_directional_edge_attribution_result(stage_b_result, path)
     changed = json.loads(payload); changed["restriction_state"]["directional_filter_tested"] = "YES"
     with pytest.raises(ValueError, match="restriction"):
-        stage_a.verify_xau_directional_edge_attribution_result(changed)
+        verifier(changed)
 
 
 def test_stage_b_count_alias_utc_boundaries_and_protocol_threshold_literals() -> None:
@@ -277,6 +292,41 @@ def test_stage_b_public_guard_rejects_dirty_worktree(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(stage_a, "_tracked_git_clean", lambda _root: False)
     with pytest.raises(ValueError, match="clean tracked"):
         stage_a.build_xau_directional_edge_attribution_result(repo_root=Path("."), xm_m1_source=Path(stage_a.RAW_SOURCE_PATH), protocol_path=Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json"))
+
+
+@pytest.mark.parametrize("field,value", [("entry_price", 0.01), ("mfe_r", 0.25)])
+def test_strict_result_verifier_pins_semantic_ledger_to_frozen_replay(stage_b_result: dict[str, object], field: str, value: float) -> None:
+    changed = json.loads(stage_a.xau_directional_edge_attribution_json(stage_b_result))
+    changed["enriched_closed_trade_ledger"][0][field] = float(changed["enriched_closed_trade_ledger"][0][field]) + value
+    # Refresh the dependent diagnostic table: only an independent frozen replay
+    # identity check can now distinguish this semantic ledger tampering.
+    contexts = stage_a._reconcile_context_ledger(changed["eligible_setup_context_ledger"])
+    changed["exit_loss_and_holding"] = stage_a._exit_and_holding(changed["enriched_closed_trade_ledger"])
+    with pytest.raises(ValueError, match="frozen replay enriched ledger"):
+        stage_a.verify_xau_directional_edge_attribution_result(changed)
+
+
+@pytest.mark.parametrize("path", [("metadata", "canonical_starting_sha"), ("metadata", "protocol_commit_sha"), ("metadata", "protocol_sha256"), ("metadata", "execution_head_sha"), ("population_reproduction", "warmup"), ("population_reproduction", "aggregation"), ("population_reproduction", "historical_ledger_identity")])
+def test_result_verifier_rejects_metadata_and_reproduction_tampering(stage_b_result: dict[str, object], path: tuple[str, str]) -> None:
+    changed = json.loads(stage_a.xau_directional_edge_attribution_json(stage_b_result))
+    target, key = path
+    changed[target][key] = "tampered"
+    with pytest.raises(ValueError):
+        stage_a.verify_xau_directional_edge_attribution_result(changed)
+
+
+def test_closed_ledger_stop_and_missing_path_semantics_fail_closed() -> None:
+    context = {"timestamp": 1, "direction": "long", "path": "immediate_open", "bias_persistence_hours": 1.0, "atr_at_setup": 1.0, "broad_market_direction_32": "up", "bias_persistence_hours_bucket": "low", "atr_at_setup_bucket": "low", "broad_market_direction_32_bucket": "up"}
+    row = _closed_row("x", -1.0, stop=False)
+    row.update({"setup_origin_timestamp": 1, **{key: value for key, value in context.items() if key != "timestamp"}})
+    rows = [{**row, "trade_id": f"x:{index:04d}", "entry_timestamp": index,
+             "exit_timestamp": index + 1} for index in range(820)]
+    rows[0]["exit_reasons"] = ["exit_stop"]
+    with pytest.raises(ValueError, match="stop membership"):
+        stage_a._reconcile_closed_ledger(rows, [context] * 1072)
+    rows[0]["stop_hit"] = True; rows[0]["mfe_r"] = None
+    with pytest.raises(ValueError, match="MFE/MAE"):
+        stage_a._reconcile_closed_ledger(rows, [context] * 1072)
 
 
 def test_stage_b_guard_rejects_alternate_raw_path_after_mocked_git_checks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
