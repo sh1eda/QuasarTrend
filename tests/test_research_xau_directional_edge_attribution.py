@@ -273,7 +273,8 @@ def test_stage_b_self_reconciling_verifier_rejects_table_and_ledger_tampering(st
         stage_a.verify_xau_directional_edge_attribution_result(changed)
 
 
-def test_stage_b_public_guard_rejects_dirty_worktree() -> None:
+def test_stage_b_public_guard_rejects_dirty_worktree(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(stage_a, "_tracked_git_clean", lambda _root: False)
     with pytest.raises(ValueError, match="clean tracked"):
         stage_a.build_xau_directional_edge_attribution_result(repo_root=Path("."), xm_m1_source=Path(stage_a.RAW_SOURCE_PATH), protocol_path=Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json"))
 
