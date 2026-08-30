@@ -119,6 +119,184 @@ def test_pinned_verifier_rejects_context_tampering() -> None:
         stage_a.verify_xau_directional_edge_attribution_protocol(protocol)
 
 
+def _closed_row(identifier: str, r: float, *, direction: str = "long", exit_timestamp: int = 10, path: str = "immediate_open", stop: bool = False, reasons: list[str] | None = None) -> dict[str, object]:
+    return {"trade_id": identifier, "outcome": "closed", "r": r, "direction": direction,
+            "entry_timestamp": 1, "exit_timestamp": exit_timestamp, "path": path, "stop_hit": stop,
+            "exit_reasons": reasons or (["exit_stop"] if stop else ["exit_hema_flip"]),
+            "holding_duration_minutes": 1.0, "mfe_r": 1.0, "mae_r": .5,
+            "bias_persistence_hours_bucket": "low", "atr_at_setup_bucket": "low", "broad_market_direction_32_bucket": "up"}
+
+
+def test_stage_b_close_order_partitions_metrics_tail_and_exit_membership() -> None:
+    rows = [_closed_row("b", 2.0, exit_timestamp=1), _closed_row("a", 2.0, exit_timestamp=1), _closed_row("c", -1.0, direction="short", exit_timestamp=2, stop=True, reasons=["exit_stop", "exit_hema_flip"]), _closed_row("d", 0.0, direction="short", exit_timestamp=3)]
+    assert [row["trade_id"] for row in stage_a._ordered_closed(rows)] == ["a", "b", "c", "d"]
+    assert [len(part) for part in stage_a._partitions(stage_a._ordered_closed(rows), 3)] == [2, 1, 1]
+    metrics = stage_a._metrics(rows)
+    assert metrics["profit_factor"] == 4.0 and metrics["win_rate"] == .5
+    assert stage_a._metrics([_closed_row("zero", 0.0)])["profit_factor"] is None
+    tail = stage_a._tail(rows)
+    assert tail["top_1"]["trade_ids"] == ["a"] and tail["top_3"]["remaining_total_r"] == -1.0
+    exit_table = stage_a._exit_and_holding(rows)
+    assert exit_table["short"]["exit_reason_membership"]["exit_stop"]["count"] == 1
+    assert exit_table["short"]["exit_reason_membership"]["exit_hema_flip"]["count"] == 2
+    assert exit_table["short"]["exclusive_ordered_reason_combinations"]["exit_stop|exit_hema_flip"]["count"] == 1
+    assert stage_a._small_cell(metrics) is True
+
+
+@pytest.fixture(scope="module")
+def stage_b_result() -> dict[str, object]:
+    protocol = json.loads(Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json").read_bytes())
+    return stage_a._build_xau_directional_edge_attribution_result_unchecked(
+        repo_root=Path("."), xm_m1_source=Path(stage_a.RAW_SOURCE_PATH), protocol=protocol,
+        guard={"head": "test", "source_sha256": stage_a.EXPECTED_SOURCE_SHA256},
+    )
+
+
+def test_stage_b_actual_internal_builder_reproduces_frozen_population_and_headlines(stage_b_result: dict[str, object]) -> None:
+    result = stage_b_result
+    protocol = json.loads(Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json").read_bytes())
+    assert result["population_reproduction"]["closed_trades"] == 820
+    assert result["population_reproduction"]["headline_reproduction"]["status"] == "PASS"
+    assert result["aggregate_baseline"]["closed_trades"] == 820
+    assert result["directional_baseline"]["long"]["closed_trades"] == 468
+    assert result["directional_baseline"]["short"]["closed_trades"] == 352
+    assert result["directional_baseline"]["long"]["total_r"] == stage_a.HISTORICAL_HEADLINES["long"]["total_r"]
+    assert result["directional_baseline"]["short"]["total_r"] == stage_a.HISTORICAL_HEADLINES["short"]["total_r"]
+    assert result["restriction_state"]["directional_filter_tested"] == "NO"
+    assert result["later_period_directional_contrast"]["separate_not_validation"] is True
+    assert set(result["classification"]["labels"]) <= set(protocol["classification"]["labels"])
+
+
+def test_stage_b_result_tables_warnings_and_reconciliations(stage_b_result: dict[str, object]) -> None:
+    result = stage_b_result
+    assert sum(cell[side]["closed_trades"] for cell in result["chronological"]["quartiles"].values() for side in ("long", "short")) == 820
+    assert sum(result["setup_path"][path][side]["opened_trades"] for path in result["setup_path"] for side in ("long", "short")) == 820
+    for family, buckets in result["regime"].items():
+        assert sum(buckets[bucket][side]["eligible_setups"] for bucket in buckets for side in ("long", "short")) == 1072
+    cells = [cell for table in result["calendar"].values() for period in table.values() for cell in period.values()]
+    cells += [cell for period in result["chronological"]["quartiles"].values() for cell in period.values()]
+    cells += [cell for paths in result["setup_path"].values() for cell in paths.values()]
+    cells += [cell for buckets in result["regime"].values() for values in buckets.values() for cell in values.values()]
+    assert all(cell["sample_warning"] == ("SMALL-SAMPLE / DESCRIPTIVE ONLY" if cell["closed_trades"] < 30 else None) for cell in cells)
+    for direction in ("long", "short"):
+        exit_table = result["exit_loss_and_holding"][direction]
+        assert sum(value["count"] for value in exit_table["exclusive_ordered_reason_combinations"].values()) == result["directional_baseline"][direction]["closed_trades"]
+        assert "p90" in exit_table["stopped_trade_diagnostics"]["mfe_r"]
+        assert "maximum" in exit_table["holding_duration_minutes"]["overall"]
+        assert "positive_r_share" in result["directional_baseline"][direction]["top_5"]
+
+
+def test_stage_b_decomposition_null_policy_and_hypothesis_contract(stage_b_result: dict[str, object]) -> None:
+    result = stage_b_result
+    decomposition = result["directional_gap_decompositions"]
+    assert decomposition["direct_arithmetic"]["sum"] == pytest.approx(decomposition["baseline_expectancy_gap"], abs=1e-12)
+    for value in [decomposition["stop_nonstop"], decomposition["setup_path"], *decomposition["regime"].values()]:
+        if value["available"]:
+            assert value["sum"] == pytest.approx(decomposition["baseline_expectancy_gap"], abs=1e-12)
+    assert "direct_component_shares" in result["classification"]["evidence"]
+    assert all(result["classification"]["evidence"]["regime"][name]["rule_triggered"]
+               for name in result["classification"]["evidence"]["triggered_regime_families"])
+    for hypothesis in result["hypotheses_generated_not_tested"]:
+        assert {"label", "observation", "possible_mechanism", "evidence_path", "evidence_values", "plausible_confounders", "future_confirmatory_test", "independent_untouched_data_needed", "discovery_disclaimer"} <= set(hypothesis)
+    assert any("missing for" in limitation for limitation in result["limitations"])
+
+
+def test_one_sided_composition_is_unavailable_and_distribution_missing_is_null() -> None:
+    left = [_closed_row("l", 1.0)]; right = []
+    decomposition = stage_a._composition_within(left, right, "path", ("immediate_open", "armed_then_opened"))
+    assert decomposition["available"] is False and decomposition["sum"] is None
+    assert decomposition["buckets"]["immediate_open"]["m_long"] == 1.0
+    assert decomposition["buckets"]["immediate_open"]["m_short"] is None
+    assert stage_a._distribution([]) == {"count": 0, "mean": None, "median": None, "p25": None, "p75": None, "p90": None, "maximum": None, "sample_warning": stage_a.SMALL_SAMPLE_WARNING}
+    assert stage_a._cell(stage_a._metrics([]))["sample_warning"] == "SMALL-SAMPLE / DESCRIPTIVE ONLY"
+
+
+def test_result_verifier_serializer_tamper_and_overwrite(stage_b_result: dict[str, object], tmp_path: Path) -> None:
+    stage_a.verify_xau_directional_edge_attribution_result(stage_b_result)
+    payload = stage_a.xau_directional_edge_attribution_json(stage_b_result)
+    assert payload.endswith(b"\n") and payload == stage_a.xau_directional_edge_attribution_json(stage_b_result)
+    path = tmp_path / "result.json"
+    assert stage_a.write_xau_directional_edge_attribution_result(stage_b_result, path) == __import__("hashlib").sha256(payload).hexdigest()
+    with pytest.raises(FileExistsError): stage_a.write_xau_directional_edge_attribution_result(stage_b_result, path)
+    changed = json.loads(payload); changed["restriction_state"]["directional_filter_tested"] = "YES"
+    with pytest.raises(ValueError, match="restriction"):
+        stage_a.verify_xau_directional_edge_attribution_result(changed)
+
+
+def test_stage_b_count_alias_utc_boundaries_and_protocol_threshold_literals() -> None:
+    assert stage_a._metrics([])["count"] == stage_a._metrics([])["closed_trades"] == 0
+    assert stage_a._calendar_label(1_704_067_200_000, "year") == "2024"  # 2024-01-01T00:00:00Z
+    assert stage_a._calendar_label(1_711_929_599_999, "quarter") == "2024-Q1"
+    assert stage_a._calendar_label(1_711_929_600_000, "quarter") == "2024-Q2"
+    protocol = json.loads(Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json").read_bytes())
+    rules = str(protocol["classification"]["rules"])
+    assert ">=0.60" in rules and ">=0.50" in rules and ">=0.25" in rules
+    assert protocol["distribution_and_null_policy"]["minimum_cell"] == "n < 30 closed trades => SMALL-SAMPLE / DESCRIPTIVE ONLY"
+
+
+def test_stage_b_context_ledger_and_mfe_mae_reconcile(stage_b_result: dict[str, object]) -> None:
+    result = stage_b_result
+    contexts = result["eligible_setup_context_ledger"]
+    assert len(contexts) == 1072 and len({row["timestamp"] for row in contexts}) == 1072
+    assert contexts == sorted(contexts, key=lambda row: row["timestamp"])
+    ledger = result["enriched_closed_trade_ledger"]
+    assert len(ledger) == 820 and all(row["outcome"] == "closed" for row in ledger)
+    assert all(row["mfe_r"] is None or row["mfe_r"] >= 0 for row in ledger)
+    assert all(row["mae_r"] is None or row["mae_r"] >= 0 for row in ledger)
+    missing = sum(row["mfe_r"] is None or row["mae_r"] is None for row in ledger if row["stop_hit"])
+    reported = sum(result["exit_loss_and_holding"][side]["stopped_trade_diagnostics"]["missing_path_count"] for side in ("long", "short"))
+    assert missing == reported
+
+
+def test_stage_b_later_contrast_exact_source_and_short_headline(stage_b_result: dict[str, object]) -> None:
+    contrast = stage_b_result["later_period_directional_contrast"]
+    assert contrast["source"] == "frozen compatibility provider_economics.xm.by_direction"
+    assert contrast["separate_not_validation"] is True and contrast["merge_with_historical"] is False
+    frozen = json.loads(Path(stage_a.COMPATIBILITY_RESULT_PATH).read_bytes())["provider_economics"]["xm"]["by_direction"]["short"]
+    assert contrast["by_direction"]["short"]["expectancy_r"]["later_compatibility"] == frozen["expectancy_r"]
+
+
+@pytest.mark.parametrize("section", ["aggregate_baseline", "calendar", "setup_path", "exit_loss_and_holding", "regime", "directional_gap_decompositions", "classification", "hypotheses_generated_not_tested", "later_period_directional_contrast", "enriched_closed_trade_ledger", "eligible_setup_context_ledger"])
+def test_stage_b_self_reconciling_verifier_rejects_table_and_ledger_tampering(stage_b_result: dict[str, object], section: str) -> None:
+    changed = json.loads(stage_a.xau_directional_edge_attribution_json(stage_b_result))
+    if section in {"enriched_closed_trade_ledger", "eligible_setup_context_ledger", "hypotheses_generated_not_tested"}:
+        changed[section] = []
+    elif section == "classification":
+        changed[section]["labels"] = []
+    elif section == "aggregate_baseline":
+        changed[section]["total_r"] = 0
+    elif section == "later_period_directional_contrast":
+        changed[section]["source"] = "tampered"
+    else:
+        changed[section] = {}
+    with pytest.raises(ValueError):
+        stage_a.verify_xau_directional_edge_attribution_result(changed)
+
+
+def test_stage_b_public_guard_rejects_dirty_worktree() -> None:
+    with pytest.raises(ValueError, match="clean tracked"):
+        stage_a.build_xau_directional_edge_attribution_result(repo_root=Path("."), xm_m1_source=Path(stage_a.RAW_SOURCE_PATH), protocol_path=Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json"))
+
+
+def test_stage_b_guard_rejects_alternate_raw_path_after_mocked_git_checks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    class Process:
+        def __init__(self, stdout: bytes | str = b"") -> None:
+            self.returncode = 0; self.stdout = stdout
+    protocol = Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json").read_bytes()
+    def fake_run(command: tuple[str, ...], **_kwargs: object) -> Process:
+        if command[:2] == ("git", "show"): return Process(protocol)
+        if command[:2] == ("git", "rev-parse"):
+            argument = command[2]
+            return Process((stage_a.CANONICAL_TAG_OBJECT if argument == stage_a.CANONICAL_TAG else stage_a.CANONICAL_STARTING_SHA) + "\n")
+        return Process()
+    monkeypatch.setattr(stage_a, "_tracked_git_clean", lambda _root: True)
+    monkeypatch.setattr(stage_a.subprocess, "run", fake_run)
+    monkeypatch.setattr(stage_a.historical, "verify_frozen_production_sources", lambda _root: {})
+    alternate = tmp_path / "alternate.csv"; alternate.write_text("x", encoding="utf-8")
+    with pytest.raises(ValueError, match="canonical raw XM source path"):
+        stage_a._verify_stage_b_guard(repo_root=Path("."), protocol_path=Path("exports/xm/phase_xau_directional_edge_attribution_protocol.json"), xm_m1_source=alternate)
+
+
 def test_full_context_lock_reproduces_structural_identities_without_economics(monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("economic path must not be called by Stage A")
