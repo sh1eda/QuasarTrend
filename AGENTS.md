@@ -1,195 +1,117 @@
-# QuasarTrend Agent Policy
+# QuasarTrend Project Rules
 
-QuasarTrend is a correctness-first trading signal system.
+## Mission and priorities
 
-The priority order is:
+QuasarTrend is an XAU / XM GOLD-only automated trading system. The product is a
+real, reliable, economically viable bot; validation and reproducibility are the
+means to make sound engineering and trading decisions, not the product itself.
+BTC is outside the active roadmap. Descriptive status documents do not override
+these safety rules or authorize trading or strategy changes; report stale
+documentation rather than following it as authority.
 
-1. PineScript / TradingView parity
-2. No lookahead or repaint
-3. Deterministic state transitions
-4. Reproducible tests
-5. Reliability
-6. Performance
+Practical priority order:
 
-Never trade correctness for implementation speed.
+1. Prevent unsafe or unintended trading behavior.
+2. Preserve known-good frozen behavior.
+3. Make real-broker execution reliable.
+4. Establish trustworthy forward evidence.
+5. Improve economic performance through isolated V2 research.
+6. Improve maintainability or performance when evidence supports it.
+7. Progress toward a production-capable XAU bot.
 
-## Agent roles
+Do not create research, optimization, or refactoring work merely because it is
+possible. Prioritize work that changes a decision about correctness, execution
+safety, forward reliability, profitability, overfitting, deployment readiness,
+or evidenced maintainability/performance. Profile meaningful performance
+bottlenecks and preserve behavior; do not perform performance theater. Do not
+call alpha successful solely from aggregate backtests: separate discovery,
+selection, OOS/forward evidence, and production authorization. V2 profitability
+research is allowed only when explicitly authorized and isolated.
 
-### Sol/main agent — Orchestrator and sole phase-gate authority
+## Frozen V1 and V2 isolation
 
-Sol/main owns:
+Canonical frozen V1 commit: `c58e18ef545909184267342eff712dd08bf47dda`.
+V1 behavior is frozen: HEMA 20/40 on 15m and 4H; Kalman period 21, alpha .01,
+beta .1, factor 1; ATR 7; 1 ATR stop; stateful either-order confirmation; 4H
+bias; armed/immediate semantics; entry mechanics; bias-reversal exit; long/short
+eligibility; timing; thresholds; risk semantics; fresh-flip/bias-epoch behavior;
+and no same-bar reversal. Do not silently clean up, simplify, optimize, modernize,
+or refactor it unless behavioral equivalence is explicitly requested and proven.
 
-- architecture
-- strategy semantics
-- phase boundaries
-- acceptance criteria
-- final code review
-- conflict resolution
-- high-risk PineScript interpretation
+Strategy changes belong in an explicitly authorized, isolated V2 path. A V2
+result is not production authorization. Family 1's `long_only` candidate is not
+production V2; never remove V1 short behavior as collateral work.
 
-Sol/main is the sole authority for final code review, phase-gate decisions, and
-acceptance. It must not delegate those decisions. Sol/main assigns bounded work
-with explicit scope and acceptance criteria, evaluates Terra and Luna reports,
-and resolves conflicts before any phase advances.
+The protected V1 holdout is `[2026-08-28T20:58:00Z, 2027-03-01T23:00:00Z)` under
+protocol `897e20265cafe69a82d405ae65dc67f9f2f61125`. Do not use its aggregate
+economics for V2 optimization or V1 directional aggregate analysis. Record
+prospective prices, signals, broker costs, and execution evidence only as the
+protocol permits. Historical V1 spread, swap, and slippage are UNKNOWN, not zero:
+true quote evidence does not overlap the frozen trade population. Do not project
+current broker costs into historical periods without explicit authorization.
 
-### Terra — Implementation agent
+## Broker and execution safety
 
-Delegate bounded implementation work to Terra.
+Current observed XM metadata, not historical constants: server `XMGlobal-MT5 18`,
+symbol `GOLD`, digits 2, point .01, contract 100, swap mode `POINTS`, long swap
+-96.61 points, short swap +13.11 points, triple-swap weekday Wednesday. Exact
+rollover clock is unresolved until evidenced.
 
-Typical Terra tasks:
+Live trading is unauthorized. Production/live sizing is UNDEFINED and
+unauthorized. For demo execution probes only,
+`DEMO_EXECUTION_VOLUME_POLICY = SYMBOL_VOLUME_MIN`; it is not production sizing,
+strategy logic, a V2 parameter, or a live risk model. Any unknown or conflicting
+semantic that could affect monetary exposure or order behavior blocks execution
+and fails closed. Unknowns affecting only reporting must be recorded and
+investigated without blocking harmless read-only work or useful unrelated
+engineering. Changes that can send, resize, duplicate, reverse, or close broker
+positions require narrow, explicit authorization; never enable a live order path
+by inference. The current XM forward framework has no `order_send` path; do not
+introduce one without explicit authorization.
 
-- implement a clearly specified module
-- write or repair unit tests
-- implement state transitions
-- refactor within an established interface
-- build diagnostic tooling
-- investigate and fix a known parity mismatch
+## Engineering evidence
 
-Terra may edit code only inside the explicitly assigned scope.
+PineScript source is authoritative. Preserve source execution order,
+initialization, `na`/`nz`, equality branches, and recursive state. For a
+TradingView mismatch, find the first divergent candle; compare source OHLC, prior
+recursive state, then the exact divergent branch before changing code. Never use
+tolerance to conceal a direction, crossover, transition, entry, or exit mismatch.
 
-Terra must:
+Every behavioral bug fix needs a regression test. Recursive indicators require
+intermediate-state checks; strategy tests must cover transitions, not only PnL.
+Protect no-lookahead/repaint behavior and deterministic transitions. Investigate
+suspected defects by locating the path, establishing expected versus actual
+behavior, gathering concrete mismatch evidence, and determining blast radius
+before an authorized modification.
 
-- inspect existing tests before changing behavior
-- preserve existing public interfaces unless instructed otherwise
-- run relevant tests after changes
-- report exact files changed
-- report unresolved uncertainty
+Keep V1, V2, and XM forward execution logically isolated. Do not rewrite history,
+retag or change canonical baselines, merge branches merely for an agent task, or
+silently weaken an acceptance criterion. Add scoped `AGENTS.md` files only when a
+subtree has genuinely different durable rules; avoid duplicate or conflicting
+instruction layers. Detailed mutable phase state belongs in task or branch
+documentation, not these permanent instructions.
 
-Terra must not independently redefine strategy semantics.
+## Lead and delegation
 
-### Luna — Review and diagnostics agent
+The lead agent owns architecture, semantics, acceptance criteria, phase gates,
+final review, and conflict resolution. The user or host selects the interactive
+root model; difficult repository-wide work normally uses GPT-6 Astra, and project
+configuration must not pin an older root model. Choose faster or less expensive
+supported subagent models when scope and risk allow. Use specialist subagents for
+independent, read-heavy exploration when that improves evidence or latency:
+codebase impact, strategy integrity, XM execution, sizing/broker semantics,
+recovery, data/time, tests/invariants, logs, and adversarial review. For
+high-risk execution work: explore in parallel, synthesize and decide centrally,
+modify narrowly, then verify independently. Do not parallelize overlapping
+write-heavy production work. Delegated conclusions are evidence, never automatic
+acceptance; the lead resolves conflicts and grants final approval.
 
-Delegate read-heavy verification work to Luna.
+For bounded implementation, use the lead or a built-in implementation worker
+with an explicit file/behavior scope and acceptance criteria. Specialists in
+`.codex/agents/` are read-only auditors, not implementation authorization.
 
-Typical Luna tasks:
-
-- inspect the repository
-- inspect CSV/parity results
-- identify the first divergent candle
-- review test coverage
-- review a proposed patch
-- find state-machine edge cases
-- inspect logs
-- summarize failures
-- check whether implementation matches specification
-
-Luna should normally operate read-only.
-
-Luna must not modify indicator formulas, strategy semantics, or architecture unless explicitly assigned a bounded patch.
-
-## Delegation policy
-
-Prefer the pattern:
-
-1. Sol/main defines the exact task and acceptance criteria.
-2. Terra implements.
-3. Luna independently reviews the result.
-4. Sol/main evaluates both outputs and makes the final decision.
-
-Do not have Terra and Luna simultaneously edit the same files.
-
-Parallelize only independent read-heavy tasks.
-
-Examples of safe parallel delegation:
-
-- Terra runs/fixes indicator tests while Luna audits TradingView CSV alignment.
-- Terra implements state machine while Luna derives missing scenario tests.
-- Terra fixes a known bug while Luna reviews unrelated test coverage.
-
-Examples of unsafe parallel delegation:
-
-- Two agents modifying `kalman.py`.
-- Two agents independently implementing StrategyEngine.
-- Multiple agents changing strategy semantics.
-- Parallel edits to the same state model.
-
-## Phase gates
-
-Do not proceed to the next project phase unless the current phase acceptance criteria pass.
-
-### Phase 1 gate
-
-Requires:
-
-- local indicator tests passing
-- batch/incremental/checkpoint equivalence
-- TradingView golden parity for required indicator states/events
-
-### Phase 2 gate
-
-Requires:
-
-- deterministic StrategyEngine
-- all scenario tests passing
-- no infrastructure dependencies
-- no same-bar reversal
-- fresh-flip/bias-epoch semantics verified
-
-### Phase 3 gate
-
-Requires:
-
-- historical/live-equivalent chronological event semantics
-- no-lookahead tests
-- deterministic backtest results
-
-Never silently weaken an acceptance criterion to make a phase pass.
-
-## PineScript rules
-
-PineScript source is authoritative.
-
-Do not:
-
-- replace formulas with similarly named Python libraries
-- simplify recursive logic
-- alter initialization
-- alter `na`/`nz` behavior
-- alter equality branches
-- alter execution ordering
-
-If Python and TradingView disagree:
-
-1. Find the first divergent candle.
-2. Compare source OHLC first.
-3. Compare prior recursive state.
-4. Identify the exact divergent branch.
-5. Change code only after finding evidence for the cause.
-
-## Testing rules
-
-Every behavioral bug fix must have a regression test.
-
-For recursive indicators, test intermediate state as well as final direction.
-
-For strategy logic, test transitions rather than only final PnL.
-
-Never use tolerance to hide a direction, crossover, transition, entry, or exit mismatch.
-
-## Scope discipline
-
-Agents must not implement future phases opportunistically.
-
-When assigned Phase N:
-
-- implement Phase N only
-- avoid speculative infrastructure
-- avoid unrelated refactors
-- stop after acceptance tests and report results
-
-## Final report contract
-
-Every delegated implementation task must return:
-
-- files inspected
-- files changed
-- tests run
-- test results
-- behavioral changes
-- remaining uncertainty
-- recommended next action
-
-Every Luna review must return its scope, evidence inspected, severity-ranked
-findings, reproducible conditions for BLOCKER/HIGH findings, remaining
-uncertainty, and recommended next action. Neither report grants phase approval;
-only Sol/main may do so.
+Delegated work must state scope, evidence inspected, severity-ranked findings,
+reproducible conditions or concrete evidence for each BLOCKER/HIGH, uncertainty,
+and a recommended action. Implementers additionally report files inspected and
+changed, tests run and results, and behavioral changes. No delegate advances a
+gate or grants final acceptance.
