@@ -21,12 +21,27 @@ def main() -> int:
     args = parser.parse_args()
     try:
         service = XMForwardService(args.root, execution_mode=args.execution_mode, terminal_path=args.terminal_path, repo_root=args.repo_root, activate=args.mode == "capture")
-    except (PermissionError, RuntimeError, ValueError):
-        print("XM DEMO EXECUTION: BLOCKED — DEMO ACCOUNT IDENTITY NOT PROVEN")
+    except (PermissionError, RuntimeError, ValueError) as error:
+        print(json.dumps({"status": "BLOCKED", "blocker": str(error)}, sort_keys=True))
         return 2
     try:
-        print(json.dumps({"audit": service.audit.snapshot, "demo_proven": service.audit.demo_proven, "allowed": service.audit.allowed, "blocker": service.audit.blocker}, sort_keys=True))
-        if args.mode == "audit": return 0
+        audit = service.audit
+        print(json.dumps({
+            "status": "PASS" if audit.audit_allowed else "BLOCKED",
+            "audit": audit.snapshot,
+            "permissions": {
+                "audit_allowed": audit.audit_allowed,
+                "audit_blocker": audit.audit_blocker,
+                "capture_allowed": audit.capture_allowed,
+                "capture_blocker": audit.capture_blocker,
+                "execution_mode_requested": audit.execution_mode,
+                "execution_permissions_proven": audit.execution_permissions_proven,
+                "execution_permission_blocker": audit.execution_permission_blocker,
+                "execution_allowed": audit.execution_allowed,
+                "execution_blocker": audit.execution_blocker,
+            },
+        }, sort_keys=True))
+        if args.mode == "audit": return 0 if audit.audit_allowed else 2
         stopping = False
         def stop(*_: object) -> None:
             nonlocal stopping; stopping = True
@@ -34,8 +49,8 @@ def main() -> int:
         service.run(lambda: stopping, args.interval_seconds)
         print(json.dumps(service.health(), sort_keys=True))
         return 0
-    except (PermissionError, RuntimeError, ValueError):
-        print("XM DEMO EXECUTION: BLOCKED — DEMO ACCOUNT IDENTITY NOT PROVEN")
+    except (PermissionError, RuntimeError, ValueError) as error:
+        print(json.dumps({"status": "BLOCKED", "blocker": str(error)}, sort_keys=True))
         return 2
     finally:
         shutdown = getattr(service.mt5, "shutdown", None)

@@ -2,7 +2,7 @@
 
 The MetaTrader5 package is intentionally imported only by :func:`load_mt5`.
 This module has no ``order_send`` path: execution evidence is useful now, but
-position-size semantics are deliberately owned by Sol/main.
+order lifecycle authorization remains a separate future gate.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 import importlib
 import json
+import math
 import os
 from pathlib import Path
 import time
@@ -21,10 +22,19 @@ from quasartrend.replay import HistoricalBar, ReplayEngine, ReplayState, Timefra
 from quasartrend.research.xm_gold_historical_validation import verify_frozen_production_sources
 from quasartrend.strategy import Direction, EventType
 
-SERVER = "XMGlobal-MT5 18"
+AUTHORIZED_DEMO_SERVERS = frozenset(("XMGlobal-MT5 9", "XMGlobal-MT5 18"))
+BROKER_COMPANY = "XM Global Limited"
+BROKER_POLICY_VERSION = "xm-demo-broker-policy/v2"
 SYMBOL = "GOLD"
-ORDER_BLOCKER = "DEMO ORDER SUBMISSION BLOCKED — POSITION SIZE SEMANTICS REQUIRE SOL/MAIN DECISION"
-IDENTITY_BLOCKER = "XM DEMO EXECUTION: BLOCKED — DEMO ACCOUNT IDENTITY NOT PROVEN"
+DEMO_EXECUTION_VOLUME_POLICY = "SYMBOL_VOLUME_MIN"
+EXPECTED_SWAP_MODE_POINTS_RAW = 1
+ORDER_BLOCKER = "DEMO ORDER SUBMISSION BLOCKED — ORDER LIFECYCLE AUTHORIZATION NOT GRANTED"
+IDENTITY_BLOCKER = "XM DEMO AUDIT: BLOCKED — ACCOUNT IDENTITY NOT PROVEN"
+CAPTURE_INTEGRITY_BLOCKER = "XM FORWARD CAPTURE: BLOCKED — RECOVERY AND COMPLETE CROSS-TIMEFRAME DATA INTEGRITY NOT PROVEN"
+# Capability audit is safe, but the current capture runtime has unresolved
+# recovery, gap, bootstrap, and delayed-H4 integrity failures.  Only a reviewed
+# code change with regression evidence may advance this gate.
+FORWARD_CAPTURE_INTEGRITY_AUTHORIZED = False
 FROZEN_V1_COMMIT = "c58e18ef545909184267342eff712dd08bf47dda"
 FROZEN_V1_MANIFEST_SHA256 = "a6b02c8056c9996eb3bcac64a18588251f9a7c741f6c208eacbdc82de15f3e6d"
 HOLDOUT_START_MS = 1787950680000  # 2026-08-28T20:58:00Z
@@ -90,51 +100,164 @@ def implementation_hash() -> str:
 class CapabilityAudit:
     server: str | None
     environment_id: str | None
+    account_identity_proven: bool
     demo_proven: bool
+    broker_identity_proven: bool
+    server_authorized: bool
+    symbol_compatible: bool
+    capture_capability_proven: bool
+    execution_permissions_proven: bool
+    execution_permission_blocker: str | None
     execution_mode: str
-    allowed: bool
-    blocker: str | None
+    audit_allowed: bool
+    audit_blocker: str | None
+    capture_allowed: bool
+    capture_blocker: str | None
+    execution_allowed: bool
+    execution_blocker: str | None
     snapshot: Mapping[str, Any]
 
 
-def audit_capabilities(mt5: Any, *, execution_mode: str = "none", server: str = SERVER, symbol: str = SYMBOL) -> CapabilityAudit:
-    """Read-only exact-server/symbol audit. It never calls order submission APIs."""
+def _exact_number(value: Any, expected: float) -> bool:
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(float(value)) and float(value) == expected
+
+
+def _exact_integer(value: Any, expected: int) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int) and value == expected
+
+
+def _valid_login(value: Any) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int) and value > 0
+
+
+def _first_failed(checks: Iterable[tuple[bool, str]]) -> str | None:
+    return next((message for passed, message in checks if not passed), None)
+
+
+def audit_capabilities(mt5: Any, *, execution_mode: str = "none", symbol: str = SYMBOL) -> CapabilityAudit:
+    """Read-only broker-policy audit. It never calls order submission APIs."""
     terminal, account = mt5.terminal_info(), mt5.account_info()
     info = mt5.symbol_info(symbol)
-    connection = bool(_value(terminal, "connected", False))
+    connection = _value(terminal, "connected") is True
     actual_server = _value(account, "server")
     login = _value(account, "login")
     demo_constant = _value(mt5, "ACCOUNT_TRADE_MODE_DEMO")
     trade_mode = _value(account, "trade_mode")
     account_expert = _value(account, "trade_expert")
-    flags = {
+    execution_flags = {
         "account_trade_allowed": _value(account, "trade_allowed"),
         "terminal_trade_allowed": _value(terminal, "trade_allowed"),
-        "expert_enabled": _value(terminal, "tradeapi_disabled") is False,
+        "python_trading_api_enabled": _value(terminal, "tradeapi_disabled") is False,
+        "account_trade_expert": account_expert,
     }
-    # Broker-side expert permission is distinct from the terminal API toggle;
-    # missing evidence is not permission to trade.
-    flags["account_trade_expert"] = account_expert
     disabled_mode = _value(mt5, "SYMBOL_TRADE_MODE_DISABLED")
-    symbol_tradeable = disabled_mode is not None and _value(info, "trade_mode") is not None and _value(info, "trade_mode") != disabled_mode
+    symbol_trade_mode = _value(info, "trade_mode")
+    symbol_tradeable = (
+        not isinstance(disabled_mode, bool) and isinstance(disabled_mode, int)
+        and not isinstance(symbol_trade_mode, bool) and isinstance(symbol_trade_mode, int)
+        and symbol_trade_mode != disabled_mode
+    )
+    account_identity = account is not None and _valid_login(login)
+    demo = not isinstance(demo_constant, bool) and isinstance(demo_constant, int) and _exact_integer(trade_mode, demo_constant)
+    broker_identity = _value(account, "company") == BROKER_COMPANY
+    server_authorized = isinstance(actual_server, str) and actual_server in AUTHORIZED_DEMO_SERVERS
+    symbol_identity = symbol == SYMBOL and info is not None and _value(info, "name") == SYMBOL
+    symbol_visible = symbol_identity and _value(info, "visible") is True
+    spec_checks = {
+        "digits": _exact_integer(_value(info, "digits"), 2),
+        "point": _exact_number(_value(info, "point"), 0.01),
+        "trade_tick_size": _exact_number(_value(info, "trade_tick_size"), 0.01),
+        "trade_tick_value": _exact_number(_value(info, "trade_tick_value"), 1.0),
+        "trade_contract_size": _exact_number(_value(info, "trade_contract_size"), 100.0),
+        "volume_min": _exact_number(_value(info, "volume_min"), 0.01),
+        "volume_max": _exact_number(_value(info, "volume_max"), 50.0),
+        "volume_step": _exact_number(_value(info, "volume_step"), 0.01),
+        # The official Python wrapper may omit swap-mode constants.  Raw value
+        # 1 is pinned by the admitted server-18 snapshot and supplied server-9
+        # evidence; do not infer it from a partial runtime enum table.
+        "swap_mode_points": _exact_integer(_value(info, "swap_mode"), EXPECTED_SWAP_MODE_POINTS_RAW),
+        "triple_swap_wednesday": _exact_integer(_value(info, "swap_rollover3days"), 3),
+        "currency_base": _value(info, "currency_base") == "USD",
+        "currency_profit": _value(info, "currency_profit") == "USD",
+        "currency_margin": _value(info, "currency_margin") == "USD",
+        "bank": _value(info, "bank") == "XM",
+        "description": _value(info, "description") == "GOLD",
+    }
+    symbol_compatible = symbol_visible and all(spec_checks.values())
+    audit_checks = (
+        (connection, "XM DEMO AUDIT: BLOCKED — TERMINAL DISCONNECTED"),
+        (account_identity, IDENTITY_BLOCKER),
+        (demo, "XM DEMO AUDIT: BLOCKED — ACCOUNT TRADE MODE IS NOT DEMO"),
+        (broker_identity, "XM DEMO AUDIT: BLOCKED — BROKER COMPANY NOT AUTHORIZED"),
+        (server_authorized, "XM DEMO AUDIT: BLOCKED — SERVER NOT EXPLICITLY AUTHORIZED"),
+        (symbol_identity, "XM DEMO AUDIT: BLOCKED — REQUIRED SYMBOL GOLD NOT AVAILABLE"),
+        (symbol_visible, "XM DEMO AUDIT: BLOCKED — REQUIRED SYMBOL GOLD NOT VISIBLE"),
+        (spec_checks["digits"], "XM DEMO AUDIT: BLOCKED — GOLD DIGITS MISMATCH"),
+        (spec_checks["point"], "XM DEMO AUDIT: BLOCKED — GOLD POINT MISMATCH"),
+        (spec_checks["trade_tick_size"], "XM DEMO AUDIT: BLOCKED — GOLD TICK SIZE MISMATCH"),
+        (spec_checks["trade_tick_value"], "XM DEMO AUDIT: BLOCKED — GOLD TICK VALUE MISMATCH"),
+        (spec_checks["trade_contract_size"], "XM DEMO AUDIT: BLOCKED — GOLD CONTRACT SIZE MISMATCH"),
+        (spec_checks["volume_min"], "XM DEMO AUDIT: BLOCKED — GOLD VOLUME MIN INVALID OR MISMATCHED"),
+        (spec_checks["volume_max"], "XM DEMO AUDIT: BLOCKED — GOLD VOLUME MAX INVALID OR MISMATCHED"),
+        (spec_checks["volume_step"], "XM DEMO AUDIT: BLOCKED — GOLD VOLUME STEP INVALID OR MISMATCHED"),
+        (spec_checks["swap_mode_points"], "XM DEMO AUDIT: BLOCKED — GOLD SWAP MODE IS NOT POINTS"),
+        (spec_checks["triple_swap_wednesday"], "XM DEMO AUDIT: BLOCKED — GOLD TRIPLE-SWAP DAY IS NOT WEDNESDAY"),
+        (spec_checks["currency_base"], "XM DEMO AUDIT: BLOCKED — GOLD BASE CURRENCY MISMATCH"),
+        (spec_checks["currency_profit"], "XM DEMO AUDIT: BLOCKED — GOLD PROFIT CURRENCY MISMATCH"),
+        (spec_checks["currency_margin"], "XM DEMO AUDIT: BLOCKED — GOLD MARGIN CURRENCY MISMATCH"),
+        (spec_checks["bank"], "XM DEMO AUDIT: BLOCKED — GOLD BANK IDENTITY MISMATCH"),
+        (spec_checks["description"], "XM DEMO AUDIT: BLOCKED — GOLD DESCRIPTION MISMATCH"),
+    )
+    audit_blocker = _first_failed(audit_checks)
+    audit_allowed = audit_blocker is None
+    execution_permissions = audit_allowed and symbol_tradeable and all(value is True for value in execution_flags.values())
+    if not audit_allowed:
+        execution_permission_blocker = audit_blocker
+    elif not symbol_tradeable:
+        execution_permission_blocker = "XM DEMO EXECUTION READINESS: BLOCKED — GOLD TRADING DISABLED"
+    elif execution_flags["account_trade_allowed"] is not True:
+        execution_permission_blocker = "XM DEMO EXECUTION READINESS: BLOCKED — ACCOUNT TRADING NOT ALLOWED"
+    elif execution_flags["terminal_trade_allowed"] is not True:
+        execution_permission_blocker = "XM DEMO EXECUTION READINESS: BLOCKED — TERMINAL TRADING NOT ALLOWED"
+    elif execution_flags["python_trading_api_enabled"] is not True:
+        execution_permission_blocker = "XM DEMO EXECUTION READINESS: BLOCKED — PYTHON TRADING API DISABLED"
+    elif execution_flags["account_trade_expert"] is not True:
+        execution_permission_blocker = "XM DEMO EXECUTION READINESS: BLOCKED — EXPERT TRADING NOT ALLOWED"
+    else:
+        execution_permission_blocker = None
+    execution_blocker = audit_blocker if not audit_allowed else ORDER_BLOCKER
+    capture_allowed = audit_allowed and FORWARD_CAPTURE_INTEGRITY_AUTHORIZED
+    capture_blocker = audit_blocker if not audit_allowed else None if capture_allowed else CAPTURE_INTEGRITY_BLOCKER
     version = getattr(mt5, "version", lambda: None)()
     snapshot = {
-        "schema_version": "xm-mt5-capability-audit/v1", "terminal_connected": connection,
+        "schema_version": "xm-mt5-capability-audit/v2", "terminal_connected": connection,
+        "policy": {"version": BROKER_POLICY_VERSION, "company": BROKER_COMPANY, "authorized_demo_servers": sorted(AUTHORIZED_DEMO_SERVERS), "symbol": SYMBOL, "swap_mode_points_raw": EXPECTED_SWAP_MODE_POINTS_RAW, "demo_execution_volume_policy": DEMO_EXECUTION_VOLUME_POLICY},
         "mt5_version": _json(version),
         "terminal": _row(terminal, ("build", "connected", "trade_allowed", "tradeapi_disabled", "community_account")),
         "account": _row(account, ("server", "trade_mode", "trade_allowed", "currency", "currency_digits", "margin_mode", "company")),
-        "symbol": _row(info, ("name", "visible", "trade_mode", "order_mode", "filling_mode", "volume_min", "volume_max", "volume_step", "trade_stops_level", "trade_freeze_level", "trade_contract_size", "digits", "point", "trade_tick_size", "trade_tick_value", "currency_base", "currency_profit", "currency_margin", "swap_mode")),
-        "flags": flags,
+        "symbol": _row(info, ("name", "visible", "trade_mode", "order_mode", "filling_mode", "volume_min", "volume_max", "volume_step", "trade_stops_level", "trade_freeze_level", "trade_contract_size", "digits", "point", "trade_tick_size", "trade_tick_value", "trade_tick_value_profit", "trade_tick_value_loss", "currency_base", "currency_profit", "currency_margin", "swap_mode", "swap_long", "swap_short", "swap_rollover3days", "bank", "description")),
+        "checks": {"account_identity_proven": account_identity, "demo_proven": demo, "broker_identity_proven": broker_identity, "server_authorized": server_authorized, "symbol_identity_proven": symbol_identity, "symbol_visible": symbol_visible, "symbol_spec": spec_checks, "symbol_tradeable": symbol_tradeable, "execution_permissions": execution_flags, "execution_permissions_proven": execution_permissions, "execution_permission_blocker": execution_permission_blocker, "order_submission_authorized": False},
     }
-    exact = actual_server == server and bool(info) and _value(info, "name") == symbol and bool(_value(info, "visible", False)) and symbol_tradeable
-    demo = demo_constant is not None and trade_mode == demo_constant
-    flags_ok = all(value is True for value in flags.values())
-    proven = connection and exact and demo and flags_ok and login is not None
-    mode_ok = execution_mode == "demo"
-    blocker = None if proven and mode_ok else IDENTITY_BLOCKER
-    if proven and not mode_ok:
-        blocker = "XM DEMO EXECUTION: BLOCKED — EXPLICIT --execution-mode demo REQUIRED"
-    return CapabilityAudit(actual_server, environment_pseudonym(actual_server, login) if actual_server and login is not None else None, proven, execution_mode, proven and mode_ok, blocker, snapshot)
+    return CapabilityAudit(
+        actual_server,
+        environment_pseudonym(actual_server, login) if isinstance(actual_server, str) and account_identity else None,
+        account_identity,
+        demo,
+        broker_identity,
+        server_authorized,
+        symbol_compatible,
+        audit_allowed,
+        execution_permissions,
+        execution_permission_blocker,
+        execution_mode,
+        audit_allowed,
+        audit_blocker,
+        capture_allowed,
+        capture_blocker,
+        False,
+        execution_blocker,
+        snapshot,
+    )
 
 
 class JsonlJournal:
@@ -249,12 +372,13 @@ class XMForwardService:
         # Do not permit a forward run if any frozen V1/Pine source has drifted.
         self.frozen_v1_sources = verify_frozen_production_sources(self.repo_root)
         self.audit = audit_capabilities(self.mt5, execution_mode=execution_mode)
-        if activate and not self.audit.allowed:
-            raise PermissionError(self.audit.blocker or IDENTITY_BLOCKER)
-        if not self.audit.environment_id: raise PermissionError(IDENTITY_BLOCKER)
+        if activate and not self.audit.capture_allowed:
+            raise PermissionError(self.audit.capture_blocker or CAPTURE_INTEGRITY_BLOCKER)
+        if not self.audit.environment_id:
+            raise PermissionError(self.audit.audit_blocker or IDENTITY_BLOCKER)
         # High-volume journals bind compact identities only. The complete
         # verified source map is retained once in immutable audit evidence.
-        p = {"source_server": SERVER, "symbol": SYMBOL, "environment_id": self.audit.environment_id, "capture_version": "xm-v1-forward/v1", "implementation_sha256": implementation_hash(), "frozen_v1_commit": FROZEN_V1_COMMIT, "frozen_v1_manifest_sha256": FROZEN_V1_MANIFEST_SHA256}
+        p = {"source_server": self.audit.server, "symbol": SYMBOL, "environment_id": self.audit.environment_id, "capture_version": "xm-v1-forward/v1", "broker_policy_version": BROKER_POLICY_VERSION, "implementation_sha256": implementation_hash(), "frozen_v1_commit": FROZEN_V1_COMMIT, "frozen_v1_manifest_sha256": FROZEN_V1_MANIFEST_SHA256}
         base = self.root / "forward" / "xm" / SYMBOL
         self.ticks = JsonlJournal(base / "ticks" / "ticks.jsonl", schema="xm-forward-ticks/v1", provenance=p, time_field="time_msc", id_field="tick_id")
         self.m1 = JsonlJournal(base / "m1" / "bars.jsonl", schema="xm-forward-bars/v1", provenance=p, time_field="open_time", id_field="bar_id")
@@ -282,7 +406,7 @@ class XMForwardService:
         self._persist_audit(base / "audit" / "capability.json")
 
     def _persist_audit(self, path: Path) -> None:
-        payload = _canonical({"schema_version": "xm-mt5-capability-evidence/v1", "environment_id": self.audit.environment_id, "server": self.audit.server, "demo_proven": self.audit.demo_proven, "implementation_sha256": implementation_hash(), "frozen_v1_commit": FROZEN_V1_COMMIT, "frozen_v1_manifest_sha256": FROZEN_V1_MANIFEST_SHA256, "frozen_v1_sources": self.frozen_v1_sources, "snapshot": self.audit.snapshot})
+        payload = _canonical({"schema_version": "xm-mt5-capability-evidence/v2", "environment_id": self.audit.environment_id, "server": self.audit.server, "account_identity_proven": self.audit.account_identity_proven, "demo_proven": self.audit.demo_proven, "broker_identity_proven": self.audit.broker_identity_proven, "server_authorized": self.audit.server_authorized, "symbol_compatible": self.audit.symbol_compatible, "audit_allowed": self.audit.audit_allowed, "capture_allowed": self.audit.capture_allowed, "execution_permissions_proven": self.audit.execution_permissions_proven, "execution_allowed": self.audit.execution_allowed, "broker_policy_version": BROKER_POLICY_VERSION, "implementation_sha256": implementation_hash(), "frozen_v1_commit": FROZEN_V1_COMMIT, "frozen_v1_manifest_sha256": FROZEN_V1_MANIFEST_SHA256, "frozen_v1_sources": self.frozen_v1_sources, "snapshot": self.audit.snapshot})
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists():
             if path.read_text(encoding="utf-8").rstrip("\n") != payload: raise ValueError("immutable capability snapshot differs from existing evidence")
@@ -367,8 +491,8 @@ class XMForwardService:
             self.reconnects += 1
             if not self.mt5.initialize(): raise RuntimeError("MT5 reconnect failed")
         current_audit = audit_capabilities(self.mt5, execution_mode=self.execution_mode)
-        if not current_audit.allowed or current_audit.environment_id != self.audit.environment_id:
-            raise PermissionError(current_audit.blocker or IDENTITY_BLOCKER)
+        if not current_audit.capture_allowed or current_audit.environment_id != self.audit.environment_id:
+            raise PermissionError(current_audit.capture_blocker or current_audit.audit_blocker or CAPTURE_INTEGRITY_BLOCKER)
         tick_rows: list[Any] = []
         cursor_ms = self.ticks.last_time or int(self.now() * 1000) - 60_000
         for page_index in range(100):
