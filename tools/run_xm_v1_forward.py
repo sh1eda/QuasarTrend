@@ -53,8 +53,7 @@ def main() -> int:
         print(json.dumps({"status": "BLOCKED", "blocker": str(error)}, sort_keys=True))
         return 2
     finally:
-        shutdown = getattr(service.mt5, "shutdown", None)
-        if callable(shutdown): shutdown()
+        service.close()
 
 
 if __name__ == "__main__":

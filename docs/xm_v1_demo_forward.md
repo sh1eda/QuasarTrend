@@ -34,11 +34,13 @@ requests an execution-readiness assessment; it cannot authorize submission.
 Live, contest, unknown company, unauthorized server, and incompatible product
 specifications fail closed with distinct messages.
 
-Forward capture remains deliberately blocked. Audit found unresolved recovery,
-missing-candle, bootstrap-depth, and delayed-H4 integrity failures that can
-change recursive V1 state. The production constant remains fail closed until a
-separately authorized repair has regression evidence. Demo order submission is
-also separately unauthorized and no `order_send` path exists.
+Forward capture remains deliberately blocked. Process-crash recovery, strict
+journals, single-writer exclusion, finalized warmup and cross-timeframe barriers
+are implemented and covered by deterministic tests. Required GOLD history still
+contains session gaps whose absence is not certified by the Python API contract.
+The runtime stalls at those gaps. See the [capture-integrity acceptance record](xm_v1_forward_capture_integrity.md)
+for the remaining source-evidence and Windows-validation requirements. Demo order
+submission remains separately unauthorized and no `order_send` path exists.
 
 Use a fresh evidence root for this policy version. Capability snapshots are
 immutable and include the implementation hash, so a directory written by the
@@ -50,7 +52,7 @@ The service calls official MT5 `initialize()` once before capability discovery.
 `--terminal-path` only selects an already interactively logged-in terminal; it
 is not authentication, and the CLI intentionally has no credential parameters.
 Every forward journal is provenance-bound to the exact audited server, broker
-policy version, runtime source SHA-256, and
+policy version, combined transport/state-machine/storage source SHA-256, and
 frozen V1 commit `c58e18ef545909184267342eff712dd08bf47dda` / manifest SHA-256
 `a6b02c8056c9996eb3bcac64a18588251f9a7c741f6c208eacbdc82de15f3e6d`.
 An existing evidence directory with a different binding fails closed.
@@ -61,18 +63,17 @@ The Windows VDS validation should run the focused MT5 forward tests with the
 official NumPy-backed MetaTrader5 package installed, in addition to audit-only
 terminal verification.
 
-If the independent capture-integrity gate is repaired and authorized, M1 is
-capture evidence. Only completed native M15 and H4 bars may flow into the
-existing frozen replay, ordered H4 before a coincident M15 decision. V1
-`TradeOpened` evidence is fsync-journaled before the independent Family-1
-`long_only` shadow record. A long is admitted by the shadow stream; a short is
-recorded as rejected. The shadow component has no broker-order API.
+The v2 capture runtime uses a canonical observation log and deterministic replay
+to reconstruct all derived journals and verify checkpoints. It preserves the
+frozen H4-before-coincident-M15 order and requires 600 finalized startup candles
+per strategy timeframe at a fixed activation cutoff. Unresolved required history
+stops strategy advancement. M1 gaps remain diagnostic evidence and are revisited.
 
-On capture restart, historical bars may warm the frozen replay state, but a V1
-opportunity is journaled only when its finalized decision bar is no more than
-60 seconds old (and after persisted capture activation). Older catch-up events
-are counted as stale missed opportunities; they never become prospective V1 or
-shadow execution candidates.
+Only prospective V1 opportunities first observed within 60 seconds of their
+finalized decision bar can produce signals. Recovery retains the original
+completed observation time. Family-1 `long_only` remains a separate shadow:
+long signals are admitted and short signals recorded as rejected. V1 shorts are
+preserved. The shadow component has no broker-order API.
 
 No broker order can be sent in this phase. The execution adapter records:
 

@@ -9,18 +9,18 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
+from copy import deepcopy
 import importlib
 import json
 import math
-import os
 from pathlib import Path
 import time
 from typing import Any, Callable, Iterable, Mapping
 
-from quasartrend.persistence import decode_replay_state, encode_replay_state
-from quasartrend.replay import HistoricalBar, ReplayEngine, ReplayState, Timeframe
+from quasartrend.replay import HistoricalBar, ReplayEngine, ReplayState
 from quasartrend.research.xm_gold_historical_validation import verify_frozen_production_sources
-from quasartrend.strategy import Direction, EventType
+from .capture import CaptureBlocked, CaptureMachine, DURATIONS, WARMUP_FINALIZED_BARS, historical
+from .durable import EvidenceLock, Fault, JsonlJournal, atomic_write, no_fault
 
 AUTHORIZED_DEMO_SERVERS = frozenset(("XMGlobal-MT5 9", "XMGlobal-MT5 18"))
 BROKER_COMPANY = "XM Global Limited"
@@ -30,10 +30,10 @@ DEMO_EXECUTION_VOLUME_POLICY = "SYMBOL_VOLUME_MIN"
 EXPECTED_SWAP_MODE_POINTS_RAW = 1
 ORDER_BLOCKER = "DEMO ORDER SUBMISSION BLOCKED — ORDER LIFECYCLE AUTHORIZATION NOT GRANTED"
 IDENTITY_BLOCKER = "XM DEMO AUDIT: BLOCKED — ACCOUNT IDENTITY NOT PROVEN"
-CAPTURE_INTEGRITY_BLOCKER = "XM FORWARD CAPTURE: BLOCKED — RECOVERY AND COMPLETE CROSS-TIMEFRAME DATA INTEGRITY NOT PROVEN"
-# Capability audit is safe, but the current capture runtime has unresolved
-# recovery, gap, bootstrap, and delayed-H4 integrity failures.  Only a reviewed
-# code change with regression evidence may advance this gate.
+CAPTURE_INTEGRITY_BLOCKER = "XM FORWARD CAPTURE: BLOCKED — REQUIRED HISTORY CLOSURES LACK SYNCHRONIZED SOURCE EVIDENCE"
+# Process-crash recovery and conservative history barriers are implemented.
+# Native GOLD session gaps still require a proven no-bar source contract;
+# synthetic continuous-history tests do not authorize this real-data gate.
 FORWARD_CAPTURE_INTEGRITY_AUTHORIZED = False
 FROZEN_V1_COMMIT = "c58e18ef545909184267342eff712dd08bf47dda"
 FROZEN_V1_MANIFEST_SHA256 = "a6b02c8056c9996eb3bcac64a18588251f9a7c741f6c208eacbdc82de15f3e6d"
@@ -93,7 +93,7 @@ def environment_pseudonym(server: str, login: Any) -> str:
 
 def implementation_hash() -> str:
     """Bind forward evidence to the exact source implementing its admission rules."""
-    return sha256(Path(__file__).read_bytes()).hexdigest()
+    return sha256(b"".join(name.encode() + b"\0" + Path(__file__).with_name(name).read_bytes() for name in ("mt5.py", "capture.py", "durable.py"))).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,66 +260,6 @@ def audit_capabilities(mt5: Any, *, execution_mode: str = "none", symbol: str = 
     )
 
 
-class JsonlJournal:
-    """Strict append-only, fsync-backed evidence journal with exact IDs."""
-    def __init__(self, path: Path, *, schema: str, provenance: Mapping[str, Any], time_field: str, id_field: str) -> None:
-        self.path, self.schema, self.provenance = Path(path), schema, dict(provenance)
-        self.time_field, self.id_field = time_field, id_field
-        self._ids: dict[str, str] = {}; self._rows: dict[str, Mapping[str, Any]] = {}; self.last_time: int | None = None
-        self._load()
-
-    def _load(self) -> None:
-        if not self.path.exists(): return
-        with self.path.open(encoding="utf-8") as stream:
-            for number, line in enumerate(stream, 1):
-                if not line.endswith("\n"): raise ValueError(f"partial journal row {number}")
-                try: row = json.loads(line)
-                except json.JSONDecodeError as exc: raise ValueError(f"invalid journal row {number}") from exc
-                self._validate(row); self._accept(row, _canonical(row))
-
-    def _validate(self, row: Mapping[str, Any]) -> None:
-        if row.get("schema_version") != self.schema or any(row.get(k) != v for k, v in self.provenance.items()):
-            raise ValueError("journal schema/provenance mismatch")
-        stamp, identity = row.get(self.time_field), row.get(self.id_field)
-        if isinstance(stamp, bool) or not isinstance(stamp, int) or stamp < 0: raise ValueError("journal timestamp invalid")
-        if not isinstance(identity, str) or not identity: raise ValueError("journal identity invalid")
-
-    def _accept(self, row: Mapping[str, Any], encoded: str) -> None:
-        stamp, identity = row[self.time_field], row[self.id_field]
-        if self.last_time is not None and stamp < self.last_time: raise ValueError("journal chronological regression")
-        previous = self._ids.get(identity)
-        if previous is not None: raise ValueError("duplicate journal identity")
-        self._ids[identity] = encoded; self.last_time = stamp
-        self._rows[identity] = dict(row)
-
-    def append(self, row: Mapping[str, Any]) -> bool:
-        material = {"schema_version": self.schema, **self.provenance, **_json(row)}
-        self._validate(material); encoded, identity = _canonical(material), material[self.id_field]
-        previous = self._ids.get(identity)
-        if previous is not None:
-            if previous == encoded: return False
-            raise ValueError("conflicting duplicate journal identity")
-        if self.last_time is not None and material[self.time_field] < self.last_time: raise ValueError("journal chronological regression")
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as stream:
-            stream.write(encoded + "\n"); stream.flush(); os.fsync(stream.fileno())
-        self._accept(material, encoded); return True
-
-    @property
-    def count(self) -> int: return len(self._ids)
-
-    def contains(self, identity: str) -> bool:
-        return identity in self._ids
-
-    def latest(self, **criteria: Any) -> Mapping[str, Any] | None:
-        found = [row for row in self._rows.values() if all(row.get(k) == v for k, v in criteria.items())]
-        return None if not found else max(found, key=lambda row: row[self.time_field])
-
-    @property
-    def rows(self) -> tuple[Mapping[str, Any], ...]:
-        return tuple(self._rows.values())
-
-
 @dataclass(frozen=True, slots=True)
 class ExecutionResult:
     execution_id: str
@@ -360,219 +300,319 @@ class Family1LongOnlyShadow:
 
 
 class XMForwardService:
-    """Polling capture using native finalized MT5 M15/H4 candles and frozen ReplayEngine."""
-    def __init__(self, root: Path, *, mt5: Any | None = None, execution_mode: str = "none", terminal_path: str | Path | None = None, repo_root: Path | None = None, activate: bool = True, max_signal_lag_ms: int = 60_000, now: Callable[[], float] = time.time, sleeper: Callable[[float], None] = time.sleep) -> None:
-        if isinstance(max_signal_lag_ms, bool) or not isinstance(max_signal_lag_ms, int) or max_signal_lag_ms <= 0:
+    """One writer, durable observations, deterministic replay and projections.
+
+    Checkpoints are verified caches, never authority for skipping an input.
+    Every persistence failure requires closing this instance and recovering.
+    """
+    def __init__(self, root: Path, *, mt5: Any | None = None, execution_mode: str = "none", terminal_path: str | Path | None = None, repo_root: Path | None = None, activate: bool = True, max_signal_lag_ms: int = 60_000, now: Callable[[], float] = time.time, sleeper: Callable[[float], None] = time.sleep, fault: Fault = no_fault) -> None:
+        if type(max_signal_lag_ms) is not int or max_signal_lag_ms <= 0:
             raise ValueError("max_signal_lag_ms must be a positive integer")
-        self.mt5, self.root, self.now, self.sleeper = mt5 or load_mt5(), Path(root), now, sleeper
-        initialized = self.mt5.initialize() if terminal_path is None else self.mt5.initialize(path=str(terminal_path))
-        if not initialized:
-            raise RuntimeError("XM MT5 initialization failed before capability audit")
-        self.repo_root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[3]
-        # Do not permit a forward run if any frozen V1/Pine source has drifted.
-        self.frozen_v1_sources = verify_frozen_production_sources(self.repo_root)
-        self.audit = audit_capabilities(self.mt5, execution_mode=execution_mode)
-        if activate and not self.audit.capture_allowed:
-            raise PermissionError(self.audit.capture_blocker or CAPTURE_INTEGRITY_BLOCKER)
-        if not self.audit.environment_id:
-            raise PermissionError(self.audit.audit_blocker or IDENTITY_BLOCKER)
-        # High-volume journals bind compact identities only. The complete
-        # verified source map is retained once in immutable audit evidence.
-        p = {"source_server": self.audit.server, "symbol": SYMBOL, "environment_id": self.audit.environment_id, "capture_version": "xm-v1-forward/v1", "broker_policy_version": BROKER_POLICY_VERSION, "implementation_sha256": implementation_hash(), "frozen_v1_commit": FROZEN_V1_COMMIT, "frozen_v1_manifest_sha256": FROZEN_V1_MANIFEST_SHA256}
-        base = self.root / "forward" / "xm" / SYMBOL
-        self.ticks = JsonlJournal(base / "ticks" / "ticks.jsonl", schema="xm-forward-ticks/v1", provenance=p, time_field="time_msc", id_field="tick_id")
-        self.m1 = JsonlJournal(base / "m1" / "bars.jsonl", schema="xm-forward-bars/v1", provenance=p, time_field="open_time", id_field="bar_id")
-        self.bars = JsonlJournal(base / "bars" / "finalized.jsonl", schema="xm-forward-bars/v1", provenance=p, time_field="finalized_at", id_field="bar_id")
-        self.gap_journals = {name: JsonlJournal(base / "gaps" / f"{name}.jsonl", schema="xm-forward-gap/v1", provenance=p, time_field="before_open", id_field="gap_id") for name in ("ticks", "m1", "m15", "h4")}
-        self.signals = JsonlJournal(base / "signals" / "v1.jsonl", schema="xm-forward-v1-signals/v1", provenance=p, time_field="signal_timestamp", id_field="signal_id")
-        self.shadow = Family1LongOnlyShadow(JsonlJournal(base / "signals" / "family1_long_only.jsonl", schema="xm-forward-family1-shadow/v1", provenance=p, time_field="decision_timestamp", id_field="shadow_id"))
-        # Recover the only allowed split-write window: V1 was durable before
-        # shadow. Reconstruct solely from its persisted prospective evidence.
-        for signal in self.signals.rows:
-            shadow_id = sha256((signal["signal_id"] + ":family-1-long-only").encode()).hexdigest()
-            if not self.shadow.journal.contains(shadow_id): self.shadow.record(signal)
-        self.execution = JsonlJournal(base / "execution" / "evidence.jsonl", schema="xm-forward-execution/v1", provenance=p, time_field="request_timestamp", id_field="execution_id")
-        self.adapter = DemoExecutionAdapter(self.mt5, self.execution, self.audit)
-        self.engine, self.state = ReplayEngine(), None
-        self.checkpoint = base / "checkpoints" / "replay.json"; self.reconnects = self.duplicates = 0; self.started_at = int(now() * 1000); self.last_execution: str | None = None
-        self.stale_quote = True; self._consecutive_failures = 0; self.max_signal_lag_ms = max_signal_lag_ms; self.missed_stale_signals = 0
-        self.execution_mode = execution_mode; self.tick_saturation = 0
-        self._capture_enabled = activate; self.activation_path = base / "service_activation.json"; self.activation_ms: int | None = None
-        self._load_checkpoint()
-        self._load_activation()
-        self.latest_m15 = self.bars.latest(timeframe="m15")
-        latest_h4 = self.bars.latest(timeframe="h4")
-        self.latest_h4 = None if latest_h4 is None else {**latest_h4, "bias": None if self.state.latest_htf_bias is None else self.state.latest_htf_bias.value}
-        self._persist_audit(base / "audit" / "capability.json")
+        self.mt5, self.root, self.now, self.sleeper = mt5 or load_mt5(), Path(root).resolve(), now, sleeper
+        self._lock = None
+        self._closed = self._poisoned = False
+        self.fault = fault
+        try:
+            initialized = self.mt5.initialize() if terminal_path is None else self.mt5.initialize(path=str(terminal_path))
+            if not initialized:
+                raise RuntimeError("XM MT5 initialization failed before capability audit")
+            self.repo_root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[3]
+            self.frozen_v1_sources = verify_frozen_production_sources(self.repo_root)
+            self.audit = audit_capabilities(self.mt5, execution_mode=execution_mode)
+            if activate and not self.audit.capture_allowed:
+                raise PermissionError(self.audit.capture_blocker or CAPTURE_INTEGRITY_BLOCKER)
+            if not self.audit.environment_id:
+                raise PermissionError(self.audit.audit_blocker or IDENTITY_BLOCKER)
+            self._lock = EvidenceLock(self.root)
+            self.execution_mode, self._capture_enabled = execution_mode, activate
+            self.max_signal_lag_ms = max_signal_lag_ms
+            self.started_at = int(now() * 1000)
+            self.reconnects = self.duplicates = self.tick_saturation = 0
+            self.last_execution = None
+            self._consecutive_failures = 0
+            self.base = self.root / "forward" / "xm" / SYMBOL
+            p = {"source_server": self.audit.server, "symbol": SYMBOL, "environment_id": self.audit.environment_id,
+                 "capture_version": "xm-v1-forward/v2", "broker_policy_version": BROKER_POLICY_VERSION,
+                 "implementation_sha256": implementation_hash(), "frozen_v1_commit": FROZEN_V1_COMMIT,
+                 "frozen_v1_manifest_sha256": FROZEN_V1_MANIFEST_SHA256,
+                 "max_signal_lag_ms": max_signal_lag_ms, "warmup_finalized_bars": WARMUP_FINALIZED_BARS}
+            def journal(relative: str, schema: str, timestamp: str, identity: str) -> JsonlJournal:
+                return JsonlJournal(self.base / relative, schema=schema, provenance=p, time_field=timestamp, id_field=identity, fault=fault)
+            self.inputs = journal("inputs/observations.jsonl", "xm-forward-observations/v2", "observed_at", "observation_id")
+            self.ticks = journal("ticks/ticks.jsonl", "xm-forward-ticks/v2", "time_msc", "tick_id")
+            self.m1 = journal("m1/bars.jsonl", "xm-forward-bars/v2", "observed_at", "bar_id")
+            self.bars = journal("bars/finalized.jsonl", "xm-forward-bars/v2", "finalized_at", "bar_id")
+            self.gaps = journal("gaps/integrity.jsonl", "xm-forward-gaps/v2", "observed_at", "gap_id")
+            self.gap_journals = {"integrity": self.gaps}
+            self.signals = journal("signals/v1.jsonl", "xm-forward-v1-signals/v2", "signal_timestamp", "signal_id")
+            self.shadow = Family1LongOnlyShadow(journal("signals/family1_long_only.jsonl", "xm-forward-family1-shadow/v2", "decision_timestamp", "shadow_id"))
+            self.execution = journal("execution/evidence.jsonl", "xm-forward-execution/v1", "request_timestamp", "execution_id")
+            self.adapter = DemoExecutionAdapter(self.mt5, self.execution, self.audit)
+            self.projections = {"ticks": self.ticks, "m1": self.m1, "bars": self.bars, "gaps": self.gaps, "signals": self.signals, "shadow": self.shadow.journal}
+            self.checkpoint = self.base / "checkpoints" / "replay.json"
+            self.machine: CaptureMachine | None = None
+            self._recover()
+            self._persist_audit()
+        except BaseException:
+            self.close()
+            raise
 
-    def _persist_audit(self, path: Path) -> None:
-        payload = _canonical({"schema_version": "xm-mt5-capability-evidence/v2", "environment_id": self.audit.environment_id, "server": self.audit.server, "account_identity_proven": self.audit.account_identity_proven, "demo_proven": self.audit.demo_proven, "broker_identity_proven": self.audit.broker_identity_proven, "server_authorized": self.audit.server_authorized, "symbol_compatible": self.audit.symbol_compatible, "audit_allowed": self.audit.audit_allowed, "capture_allowed": self.audit.capture_allowed, "execution_permissions_proven": self.audit.execution_permissions_proven, "execution_allowed": self.audit.execution_allowed, "broker_policy_version": BROKER_POLICY_VERSION, "implementation_sha256": implementation_hash(), "frozen_v1_commit": FROZEN_V1_COMMIT, "frozen_v1_manifest_sha256": FROZEN_V1_MANIFEST_SHA256, "frozen_v1_sources": self.frozen_v1_sources, "snapshot": self.audit.snapshot})
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if path.exists():
-            if path.read_text(encoding="utf-8").rstrip("\n") != payload: raise ValueError("immutable capability snapshot differs from existing evidence")
+    @property
+    def activation_ms(self) -> int | None:
+        return None if self.machine is None else self.machine.activation_ms
+
+    @property
+    def state(self) -> ReplayState:
+        return ReplayEngine().initial_state(SYMBOL) if self.machine is None else self.machine.state
+
+    def close(self) -> None:
+        if self._closed:
             return
-        temporary = path.with_suffix(".tmp")
-        with temporary.open("w", encoding="utf-8") as stream:
-            stream.write(payload + "\n"); stream.flush(); os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        self._closed = True
+        try:
+            shutdown = getattr(self.mt5, "shutdown", None)
+            if callable(shutdown):
+                shutdown()
+        finally:
+            if self._lock is not None:
+                self._lock.close()
 
-    def _load_checkpoint(self) -> None:
-        if self.checkpoint.exists(): self.state = decode_replay_state(self.checkpoint.read_text(), expected_config=self.engine.config)
-        else: self.state = self.engine.initial_state(SYMBOL)
+    def __enter__(self) -> XMForwardService:
+        return self
 
-    def _load_activation(self) -> None:
-        if not self.activation_path.exists(): return
-        row = json.loads(self.activation_path.read_text(encoding="utf-8"))
-        if set(row) != {"schema_version", "activation_ms", "activation_utc"} or row["schema_version"] != "xm-forward-activation/v1" or not isinstance(row["activation_ms"], int) or row["activation_utc"] != utc_iso(row["activation_ms"]):
-            raise ValueError("invalid forward service activation evidence")
-        self.activation_ms = row["activation_ms"]
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
-    def _ensure_activation(self, now_ms: int) -> int:
-        if self.activation_ms is not None: return self.activation_ms
-        if not self._capture_enabled: raise PermissionError("forward capture is not enabled in audit-only mode")
-        payload = _canonical({"schema_version": "xm-forward-activation/v1", "activation_ms": now_ms, "activation_utc": utc_iso(now_ms)})
-        self.activation_path.parent.mkdir(parents=True, exist_ok=True)
-        if self.activation_path.exists():
-            self._load_activation(); assert self.activation_ms is not None; return self.activation_ms
-        temporary = self.activation_path.with_suffix(".tmp")
-        with temporary.open("w", encoding="utf-8") as stream:
-            stream.write(payload + "\n"); stream.flush(); os.fsync(stream.fileno())
-        os.replace(temporary, self.activation_path); self.activation_ms = now_ms
-        return now_ms
+    def _persist_audit(self) -> None:
+        # Full snapshot revisions are separate immutable audit records. A swap
+        # or permission-report change cannot overwrite old evidence or masquerade
+        # as a different account (the compact identity binds every journal).
+        payload = _canonical({"schema_version": "xm-mt5-capability-evidence/v2", "environment_id": self.audit.environment_id,
+                              "snapshot": self.audit.snapshot, "audit_allowed": self.audit.audit_allowed,
+                              "capture_allowed": self.audit.capture_allowed, "execution_allowed": False,
+                              "implementation_sha256": implementation_hash(), "frozen_v1_sources": self.frozen_v1_sources})
+        path = self.base / "audit" / (sha256(payload.encode()).hexdigest() + ".json")
+        if path.exists():
+            if path.read_bytes() != (payload + "\n").encode():
+                raise ValueError("immutable audit evidence corruption")
+        else:
+            atomic_write(path, payload + "\n")
+
+    def _checkpoint_payload(self, count: int, tip: str) -> dict[str, Any]:
+        assert self.machine is not None
+        return {"schema_version": "xm-capture-checkpoint/v2", "input_count": count, "input_tip": tip,
+                "activation_ms": self.machine.activation_ms, "snapshot": self.machine.snapshot()}
+
+    def _recover(self) -> None:
+        saved = None
+        if self.checkpoint.exists():
+            saved = json.loads(self.checkpoint.read_bytes())
+            if (not isinstance(saved, dict) or type(saved.get("input_count")) is not int
+                    or not 0 < saved["input_count"] <= self.inputs.count):
+                raise ValueError("checkpoint ahead of canonical input or invalid")
+        expected: dict[str, list[dict[str, Any]]] = {name: [] for name in self.projections}
+        for index, observation in enumerate(self.inputs.rows, 1):
+            if self.machine is None:
+                self.machine = CaptureMachine(activation_ms=observation["activation_ms"], max_signal_lag_ms=self.max_signal_lag_ms)
+            outputs = self.machine.observe(observation)
+            for name, rows in outputs.items():
+                expected[name].extend(self.projections[name].material(row) for row in rows)
+            if saved is not None and saved["input_count"] == index:
+                if saved != self._checkpoint_payload(index, self.inputs.digests[index - 1]):
+                    raise ValueError("checkpoint does not match deterministic input replay")
+        # Validate ALL projections before repairing any one of them. Extra or
+        # orphan evidence, even with valid framing, must never be discarded.
+        for name, journal in self.projections.items():
+            rows = list(journal.rows)
+            if rows != expected[name][:len(rows)] or len(rows) > len(expected[name]):
+                raise ValueError(f"{name} projection is not an exact canonical input prefix")
+        for name, journal in self.projections.items():
+            for row in expected[name][journal.count:]:
+                journal.append(row)
+        if self.machine is not None:
+            self._save_checkpoint()
 
     def _save_checkpoint(self) -> None:
-        self.checkpoint.parent.mkdir(parents=True, exist_ok=True); temporary = self.checkpoint.with_suffix(".tmp")
-        with temporary.open("w", encoding="utf-8") as stream:
-            stream.write(encode_replay_state(self.state, expected_config=self.engine.config)); stream.flush(); os.fsync(stream.fileno())
-        os.replace(temporary, self.checkpoint)
+        atomic_write(self.checkpoint, _canonical(self._checkpoint_payload(self.inputs.count, self.inputs.tip)) + "\n", self.fault)
 
-    def _rate_rows(self, timeframe: Any, name: str, duration_ms: int) -> list[Mapping[str, Any]]:
-        now_ms = int(self.now() * 1000)
-        journal = self.m1 if name == "m1" else self.bars
-        previous = journal.latest(timeframe=name)
-        if previous is not None and hasattr(self.mt5, "copy_rates_range"):
-            start = max(0, int(previous["open_time"]) - duration_ms)
-            rates = self.mt5.copy_rates_range(SYMBOL, timeframe, datetime.fromtimestamp(start / 1000, UTC), datetime.fromtimestamp(now_ms / 1000, UTC))
+    def _history_status(self, result: Any, name: str) -> list[Any]:
+        status = getattr(self.mt5, "last_error", lambda: None)()
+        if (result is None or not isinstance(status, (tuple, list)) or len(status) != 2
+                or type(status[0]) is not int or status[0] != 1):
+            raise RuntimeError(f"MT5 {name} history result/status not successful: {status}")
+        # Python success is necessary, but is not treated as proof of closure.
+        return _json(status)
+
+    def _rate_rows(self, timeframe: Any, name: str, duration_ms: int, now_ms: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        known = {} if self.machine is None else self.machine.known[name]
+        previous = None if self.machine is None or name == "m1" else self.machine.latest[name]
+        request: dict[str, Any] = {"timeframe": name, "cutoff_ms": now_ms}
+        bootstrap = not known or (name != "m1" and sum(row["finalized_at"] <= self.activation_ms for row in known.values()) < WARMUP_FINALIZED_BARS)
+        if bootstrap:
+            finalized = []
+            attempts = []
+            cutoff = now_ms if self.activation_ms is None else self.activation_ms
+            for count in (601, 1202, 2404, 4808, 9616):
+                raw = self.mt5.copy_rates_from_pos(SYMBOL, timeframe, 0, count)
+                status = self._history_status(raw, name)
+                raw = list(raw)
+                finalized = self._normalize_rates(raw, name, duration_ms, now_ms)
+                warmup_count = sum(row["finalized_at"] <= cutoff for row in finalized)
+                attempts.append({"requested": count, "returned": len(raw), "finalized": len(finalized), "warmup_finalized": warmup_count, "status": status})
+                if warmup_count >= WARMUP_FINALIZED_BARS or name == "m1":
+                    break
+            request.update({"kind": "position_overfetch", "attempts": attempts})
+            if name == "m1":
+                finalized = finalized[-WARMUP_FINALIZED_BARS:]
+            else:
+                finalized = ([row for row in finalized if row["finalized_at"] <= cutoff][-WARMUP_FINALIZED_BARS:]
+                             + [row for row in finalized if row["finalized_at"] > cutoff])
         else:
-            rates = self.mt5.copy_rates_from_pos(SYMBOL, timeframe, 0, 600)
-        if rates is None:
-            raise RuntimeError(f"MT5 {name} rates API returned no data")
-        # Wall-clock time cannot prove GOLD traded through a closure. A newer
-        # captured native tick can: then a resumed range must at least reach
-        # that tick's current/forming source candle, even though only closed
-        # candles below are admitted to replay.
-        raw_opens = [int(_value(rate, "time")) * 1000 for rate in rates]
-        if previous is not None and self.ticks.last_time is not None:
-            expected_open = (self.ticks.last_time // duration_ms) * duration_ms
-            if expected_open > int(previous["open_time"]) and (not raw_opens or max(raw_opens) < expected_open):
-                raise RuntimeError(f"resumed {name} range does not reach observed tick activity")
-        finalized = []
-        for rate in rates:
-            open_time = int(_value(rate, "time")) * 1000
-            if open_time + duration_ms > now_ms: continue
-            row = {"bar_id": f"{name}:{open_time}", "open_time": open_time, "finalized_at": open_time + duration_ms, "time_utc": utc_iso(open_time), "finalized_utc": utc_iso(open_time + duration_ms), "timeframe": name, "open": float(_value(rate, "open")), "high": float(_value(rate, "high")), "low": float(_value(rate, "low")), "close": float(_value(rate, "close")), "tick_volume": _value(rate, "tick_volume"), "spread": _value(rate, "spread"), "real_volume": _value(rate, "real_volume")}
-            finalized.append(row)
-        finalized.sort(key=lambda row: row["open_time"])
-        # A resumed range must include its persisted overlap. Internal cadence
-        # gaps are journaled below because GOLD session closures are legitimate.
-        if previous is not None and hasattr(self.mt5, "copy_rates_range"):
-            prior_open = int(previous["open_time"])
-            if not any(int(row["open_time"]) == prior_open for row in finalized):
+            if not callable(getattr(self.mt5, "copy_rates_range", None)):
+                raise RuntimeError("MT5 range history is required for deterministic resume")
+            start = previous["open_time"] if previous is not None else min(known)
+            if name == "m1":
+                missing = [] if self.machine is None else self.machine.m1_gaps
+                start = max(known) if not missing else max(min(known), min(gap["open_time"] for gap in missing) - duration_ms)
+            raw = self.mt5.copy_rates_range(SYMBOL, timeframe, datetime.fromtimestamp(start / 1000, UTC), datetime.fromtimestamp(now_ms / 1000, UTC))
+            status = self._history_status(raw, name)
+            finalized = self._normalize_rates(list(raw), name, duration_ms, now_ms)
+            request.update({"kind": "range", "start_ms": start, "returned_finalized": len(finalized), "status": status})
+            if not any(row["open_time"] == start for row in finalized):
                 raise RuntimeError(f"resumed {name} range omitted persisted overlap")
-        for left, right in zip(finalized, finalized[1:]):
-            if right["open_time"] - left["open_time"] > duration_ms:
-                self.gap_journals[name].append({"gap_id": f"{name}:{left['open_time']}:{right['open_time']}", "timeframe": name, "after_open": left["open_time"], "before_open": right["open_time"], "gap_ms": right["open_time"] - left["open_time"]})
-        return finalized
+        return finalized, request
+
+    @staticmethod
+    def _normalize_rates(rates: list[Any], name: str, duration_ms: int, now_ms: int) -> list[dict[str, Any]]:
+        finalized: dict[int, dict[str, Any]] = {}
+        for rate in rates:
+            stamp = _value(rate, "time")
+            if type(stamp) is not int or stamp < 0:
+                raise ValueError("invalid MT5 bar time")
+            open_time = stamp * 1000
+            if open_time + duration_ms > now_ms:
+                continue
+            values = {key: _value(rate, key) for key in ("open", "high", "low", "close", "tick_volume", "spread", "real_volume")}
+            for key, value in values.items():
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                    raise ValueError(f"invalid finalized bar {key}")
+            if (not 0 < values["low"] <= min(values["open"], values["close"]) <= max(values["open"], values["close"]) <= values["high"]
+                    or any(values[key] < 0 for key in ("tick_volume", "spread", "real_volume"))):
+                raise ValueError("invalid finalized bar OHLC/volume/spread")
+            row = {"bar_id": f"{name}:{open_time}", "open_time": open_time, "finalized_at": open_time + duration_ms,
+                   "time_utc": utc_iso(open_time), "finalized_utc": utc_iso(open_time + duration_ms), "timeframe": name, **values}
+            if open_time in finalized and finalized[open_time] != row:
+                raise ValueError("conflicting duplicate finalized rate")
+            finalized[open_time] = row
+        return [finalized[key] for key in sorted(finalized)]
+
+    def _tick_rows(self, now_ms: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        start_ms = self.ticks.last_time if self.ticks.last_time is not None else max(0, now_ms - 60_000)
+        rows = []
+        cursor_ms = start_ms
+        pages = []
+        for page_index in range(100):
+            page = self.mt5.copy_ticks_from(SYMBOL, datetime.fromtimestamp(cursor_ms / 1000, UTC), 10_000, self.mt5.COPY_TICKS_ALL)
+            status = self._history_status(page, "ticks")
+            page = list(page)
+            stamps = []
+            for tick in page:
+                msc = _value(tick, "time_msc")
+                if type(msc) is not int or msc < cursor_ms:
+                    raise ValueError("invalid MT5 tick timestamp or retrieval bound")
+                stamps.append(msc)
+                if msc > now_ms:
+                    continue
+                values = _row(tick, ("last", "volume", "volume_real", "flags"))
+                bid, ask = _value(tick, "bid"), _value(tick, "ask")
+                if any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) for value in (bid, ask, *values.values())) or not 0 < bid <= ask:
+                    raise ValueError("invalid MT5 tick quote")
+                row = {"time_msc": msc, "time_utc": utc_iso(msc), "bid": bid, "ask": ask, "spread": ask - bid, **values}
+                rows.append({"tick_id": sha256(_canonical(row).encode()).hexdigest(), **row})
+            pages.append({"cursor_ms": cursor_ms, "returned": len(page), "status": status})
+            if len(page) < 10_000 or (stamps and max(stamps) > now_ms):
+                break
+            newest = max(stamps)
+            if newest <= cursor_ms or page_index == 99:
+                self.tick_saturation += 1
+                raise RuntimeError("MT5 tick pagination saturated; boundary completeness unresolved")
+            # Inclusive re-fetch exhausts all distinct ticks at the page boundary.
+            # Never advance by +1: that silently loses same-millisecond ticks.
+            cursor_ms = newest
+        by_id = {row["tick_id"]: row for row in rows}
+        return sorted(by_id.values(), key=lambda row: (row["time_msc"], row["tick_id"])), {"start_ms": start_ms, "cutoff_ms": now_ms, "pages": pages}
 
     def poll_once(self) -> tuple[HistoricalBar, ...]:
+        if self._closed or self._poisoned:
+            raise RuntimeError("capture service requires restart")
+        if not self._capture_enabled:
+            raise PermissionError("forward capture is not enabled in audit-only mode")
         now_ms = int(self.now() * 1000)
-        activation_ms = self._ensure_activation(now_ms)
         if not bool(_value(self.mt5.terminal_info(), "connected", False)):
             self.reconnects += 1
-            if not self.mt5.initialize(): raise RuntimeError("MT5 reconnect failed")
+            if not self.mt5.initialize():
+                raise RuntimeError("MT5 reconnect failed")
         current_audit = audit_capabilities(self.mt5, execution_mode=self.execution_mode)
         if not current_audit.capture_allowed or current_audit.environment_id != self.audit.environment_id:
-            raise PermissionError(current_audit.capture_blocker or current_audit.audit_blocker or CAPTURE_INTEGRITY_BLOCKER)
-        tick_rows: list[Any] = []
-        cursor_ms = self.ticks.last_time or int(self.now() * 1000) - 60_000
-        for page_index in range(100):
-            page = self.mt5.copy_ticks_from(SYMBOL, datetime.fromtimestamp(max(0, cursor_ms) / 1000, UTC), 10_000, self.mt5.COPY_TICKS_ALL)
-            if page is None:
-                raise RuntimeError("MT5 ticks API returned no data")
-            page = list(page)
-            if not page: break
-            tick_rows.extend(page)
-            timestamps = []
-            for tick in page:
-                raw_msc = _value(tick, "time_msc")
-                timestamps.append(int(raw_msc if raw_msc is not None else int(_value(tick, "time")) * 1000))
-            newest = max(timestamps)
-            if len(page) < 10_000: break
-            if newest <= cursor_ms:
-                self.tick_saturation += 1
-                self.gap_journals["ticks"].append({"gap_id": f"ticks-saturation:{cursor_ms}", "timeframe": "ticks", "after_open": cursor_ms, "before_open": cursor_ms, "gap_ms": 0, "reason": "full_page_no_time_progress"})
-                raise RuntimeError("MT5 tick pagination saturated without time progress")
-            if page_index == 99:
-                self.tick_saturation += 1
-                self.gap_journals["ticks"].append({"gap_id": f"ticks-saturation:page-limit:{cursor_ms}", "timeframe": "ticks", "after_open": cursor_ms, "before_open": cursor_ms, "gap_ms": 0, "reason": "page_limit_reached"})
-                raise RuntimeError("MT5 tick pagination page limit reached")
-            cursor_ms = newest + 1
-        for tick in tick_rows:
-            raw_msc = _value(tick, "time_msc")
-            msc = int(raw_msc if raw_msc is not None else int(_value(tick, "time")) * 1000)
-            row = {"tick_id": sha256(_canonical(_row(tick, ("time_msc", "bid", "ask", "last", "volume", "volume_real", "flags"))).encode()).hexdigest(), "time_msc": msc, "time_utc": utc_iso(msc), "bid": float(_value(tick, "bid")), "ask": float(_value(tick, "ask")), "spread": float(_value(tick, "ask"))-float(_value(tick, "bid")), **_row(tick, ("last", "volume", "volume_real", "flags"))}
-            prior_tick = self.ticks.last_time
-            if not self.ticks.append(row): self.duplicates += 1
-            elif prior_tick is not None and msc - prior_tick > 60_000:
-                self.gap_journals["ticks"].append({"gap_id": f"ticks:{prior_tick}:{msc}", "timeframe": "ticks", "after_open": prior_tick, "before_open": msc, "gap_ms": msc - prior_tick})
-        m1_tf, m15_tf, h4_tf = self.mt5.TIMEFRAME_M1, self.mt5.TIMEFRAME_M15, self.mt5.TIMEFRAME_H4
-        for row in self._rate_rows(m1_tf, "m1", 60_000):
-            if not self.m1.append(row): self.duplicates += 1
-        captured: list[tuple[dict[str, Any], Timeframe]] = []
-        for tf, name, duration, enum in ((m15_tf, "m15", 900_000, Timeframe.MINUTES_15), (h4_tf, "h4", 14_400_000, Timeframe.HOURS_4)):
-            for row in self._rate_rows(tf, name, duration):
-                captured.append((row, enum))
-        ready: list[HistoricalBar] = []
-        for row, enum in sorted(captured, key=lambda item: (item[0]["finalized_at"], item[1].priority)):
-            if not self.bars.append(row): self.duplicates += 1
-            if enum is Timeframe.MINUTES_15: self.latest_m15 = row
-            ready.append(HistoricalBar(SYMBOL, enum, row["open_time"], row["open"], row["high"], row["low"], row["close"], row["tick_volume"]))
-        processed: list[HistoricalBar] = []
-        for bar in sorted(ready, key=lambda item: item.processing_key):
-            if self.state.chronology_cursor is not None and bar.processing_key <= self.state.chronology_cursor: continue
-            result = self.engine.step(self.state, bar); self.state = result.state; processed.append(bar)
-            if bar.timeframe is Timeframe.HOURS_4:
-                self.latest_h4 = {"bar_id": f"h4:{bar.open_time}", "open_time": bar.open_time, "finalized_at": bar.finalized_at, "finalized_utc": utc_iso(bar.finalized_at), "bias": None if self.state.latest_htf_bias is None else self.state.latest_htf_bias.value}
-            for event in result.trace.events:
-                if event.type is EventType.TRADE_OPENED and bar.finalized_at >= activation_ms and 0 <= now_ms - bar.finalized_at <= self.max_signal_lag_ms:
-                    trade = self.state.strategy_state.trade; assert trade is not None
-                    signal_id = sha256(f"v1:{bar.processing_key}:{trade.trade_id}".encode()).hexdigest()
-                    if self.signals.contains(signal_id): continue
-                    signal = {"signal_id": signal_id, "signal_timestamp": now_ms, "decision_bar_timestamp": bar.open_time, "strategy_version": "frozen-v1", "config_hash": sha256(_canonical({"replay": asdict(self.engine.config), "strategy": asdict(self.engine.strategy_engine.config)}).encode()).hexdigest(), "direction": trade.side.value, "signal_type": "TradeOpened", "armed_or_immediate": "immediate" if trade.setup_origin_timestamp == bar.finalized_at else "armed", "setup_origin_timestamp": trade.setup_origin_timestamp, "finalized_m15": {"open_time": bar.open_time, "finalized_at": bar.finalized_at, "ohlc": [bar.open, bar.high, bar.low, bar.close]}, "finalized_h4_bias": self.latest_h4, "theoretical_entry": trade.entry_price, "intended_initial_stop": trade.stop_price, "intended_exit_rule": "frozen_v1_bias_reversal_or_hema_or_stop", "state_hash": sha256(_canonical(json.loads(encode_replay_state(self.state, expected_config=self.engine.config))).encode()).hexdigest()}
-                    if self.signals.append(signal): self.shadow.record(signal)
-                elif event.type is EventType.TRADE_OPENED and bar.finalized_at >= activation_ms and now_ms - bar.finalized_at > self.max_signal_lag_ms:
-                    # Catch-up can reconstruct state but must never create a
-                    # late prospective opportunity after an outage/restart.
-                    self.missed_stale_signals += 1
-        self._save_checkpoint(); return tuple(processed)
+            raise PermissionError(current_audit.capture_blocker or current_audit.audit_blocker or "capture environment changed")
+        ticks, tick_request = self._tick_rows(now_ms)
+        rates, requests = {}, {}
+        for name, tf in (("m1", self.mt5.TIMEFRAME_M1), ("m15", self.mt5.TIMEFRAME_M15), ("h4", self.mt5.TIMEFRAME_H4)):
+            rates[name], requests[name] = self._rate_rows(tf, name, DURATIONS[name], now_ms)
+        completed_ms = int(self.now() * 1000)
+        observation = {"observation_id": str(self.inputs.count + 1), "observed_at": completed_ms, "cutoff_ms": now_ms,
+                       "activation_ms": now_ms if self.activation_ms is None else self.activation_ms, "ticks": ticks, "rates": rates,
+                       "requests": {"ticks": tick_request, "rates": requests}}
+        # Validate the transition on a private candidate before committing it.
+        # A bad API observation must not permanently poison the canonical WAL.
+        candidate = deepcopy(self.machine) if self.machine is not None else CaptureMachine(activation_ms=now_ms, max_signal_lag_ms=self.max_signal_lag_ms)
+        outputs = candidate.observe(observation)
+        try:
+            # The sole commit boundary: no projection or recursive transition
+            # may precede this durable, fully framed canonical observation.
+            self.inputs.append(observation)
+            self.machine = candidate
+            for name, rows in outputs.items():
+                for row in rows:
+                    self.projections[name].append(row)
+            self._save_checkpoint()
+            self.fault("after_checkpoint_before_next_event", self.checkpoint)
+        except BaseException:
+            self._poisoned = True
+            raise
+        if self.machine.pending_gaps:
+            first = self.machine.pending_gaps[0]
+            raise CaptureBlocked(f"strategy advancement blocked: {first}")
+        return tuple(historical(row) for row in outputs["bars"])
 
     def health(self) -> dict[str, Any]:
         latest_tick = self.ticks.last_time
-        self.stale_quote = latest_tick is None or int(self.now() * 1000) - latest_tick > 60_000
-        gap_count = sum(journal.count for journal in self.gap_journals.values())
-        return {"service_started_utc": utc_iso(self.started_at), "latest_tick": latest_tick, "latest_tick_utc": None if latest_tick is None else utc_iso(latest_tick), "latest_m1": self.m1.last_time, "latest_m1_utc": None if self.m1.last_time is None else utc_iso(self.m1.last_time), "last_finalized_m15": None if self.latest_m15 is None else self.latest_m15["finalized_at"], "last_finalized_m15_utc": None if self.latest_m15 is None else self.latest_m15["finalized_utc"], "last_finalized_h4": None if self.latest_h4 is None else self.latest_h4["finalized_at"], "last_finalized_h4_utc": None if self.latest_h4 is None else self.latest_h4["finalized_utc"], "counts": {"ticks": self.ticks.count, "m1": self.m1.count, "bars": self.bars.count, "signals": self.signals.count, "shadow": self.shadow.journal.count, "execution": self.execution.count}, "duplicates": self.duplicates, "gaps": gap_count, "reconnects": self.reconnects, "stale_quote": self.stale_quote, "tick_saturation": self.tick_saturation, "missed_stale_signals": self.missed_stale_signals, "pending": self.state.strategy_state.pending_direction is not None, "open_v1_position": self.state.strategy_state.trade is not None, "last_execution": self.last_execution}
+        return {"service_started_utc": utc_iso(self.started_at), "latest_tick": latest_tick,
+                "last_finalized_m15": None if self.machine is None or self.machine.latest["m15"] is None else self.machine.latest["m15"]["finalized_at"],
+                "last_finalized_h4": None if self.machine is None or self.machine.latest["h4"] is None else self.machine.latest["h4"]["finalized_at"],
+                "counts": {**{name: journal.count for name, journal in self.projections.items()}, "inputs": self.inputs.count, "execution": self.execution.count},
+                "gaps": self.gaps.count, "pending_gaps": [] if self.machine is None else self.machine.pending_gaps,
+                "reconnects": self.reconnects, "tick_saturation": self.tick_saturation,
+                "stale_quote": latest_tick is None or int(self.now() * 1000) - latest_tick > 60_000,
+                "missed_stale_signals": 0 if self.machine is None else self.machine.missed_stale_signals,
+                "pending": self.state.strategy_state.pending_direction is not None,
+                "open_v1_position": self.state.strategy_state.trade is not None, "last_execution": self.last_execution}
 
     def run(self, stop: Callable[[], bool], interval_seconds: float = 5.0) -> None:
         while not stop():
             delay = interval_seconds
             try:
-                self.poll_once(); self._consecutive_failures = 0
-            except Exception:
-                self.reconnects += 1; self._consecutive_failures += 1
-                if self._consecutive_failures >= 4: raise
+                self.poll_once()
+                self._consecutive_failures = 0
+            except (RuntimeError, PermissionError, ValueError):
+                if self._poisoned:
+                    raise
+                self._consecutive_failures += 1
+                if self._consecutive_failures >= 4:
+                    raise
                 delay = min(interval_seconds * (2 ** (self._consecutive_failures - 1)), 60.0)
-            if not stop(): self.sleeper(delay)
-
+            if not stop():
+                self.sleeper(delay)
 
 def holdout_aggregate_economics(*, start_ms: int, end_ms: int) -> None:
     if any(isinstance(value, bool) or not isinstance(value, int) for value in (start_ms, end_ms)) or start_ms >= end_ms:
