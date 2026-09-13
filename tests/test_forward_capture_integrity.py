@@ -37,6 +37,8 @@ SEP4_WEEKEND_START = 1_788_566_400_000
 SEP4_WEEKEND_END = 1_788_742_800_000
 SEP7_EARLY_START = 1_788_816_600_000
 SEP7_EARLY_END = 1_788_829_200_000
+SEP9_DAILY_START = 1_788_912_000_000
+SEP9_DAILY_END = 1_788_915_600_000
 SEP8_FUTURE_START = 1_788_903_000_000
 CERTIFICATE_TEST_ACTIVATION = 1_788_930_000_000
 
@@ -104,10 +106,11 @@ def certificate_machine(
     *, m15_omissions: set[int], h4_omissions: set[int] | None = None,
     source_server: str = "XMGlobal-MT5 9", tick_times: tuple[int, ...] = (),
     m1_times: tuple[int, ...] = (),
+    activation_ms: int = CERTIFICATE_TEST_ACTIVATION,
 ) -> CaptureMachine:
     """Build enough finalized synthetic history around the real certificate dates."""
     machine = CaptureMachine(
-        activation_ms=CERTIFICATE_TEST_ACTIVATION, max_signal_lag_ms=60_000,
+        activation_ms=activation_ms, max_signal_lag_ms=60_000,
         source_server=source_server, symbol="GOLD",
     )
     rates: dict[str, list[dict[str, object]]] = {"m1": [], "m15": [], "h4": []}
@@ -115,8 +118,8 @@ def certificate_machine(
         ("m15", M15, 900, m15_omissions),
         ("h4", H4, 700, h4_omissions or set()),
     ):
-        end = (CERTIFICATE_TEST_ACTIVATION if name == "m15"
-               else CERTIFICATE_TEST_ACTIVATION - CERTIFICATE_TEST_ACTIVATION % H4)
+        end = (activation_ms if name == "m15"
+               else activation_ms - activation_ms % H4)
         for stamp in range(end - count * duration, end, duration):
             if stamp in omissions:
                 continue
@@ -135,9 +138,9 @@ def certificate_machine(
         "tick_volume": 1, "spread": 10, "real_volume": 1,
     } for stamp in m1_times]
     machine.observe({
-        "observation_id": "1", "observed_at": CERTIFICATE_TEST_ACTIVATION,
-        "cutoff_ms": CERTIFICATE_TEST_ACTIVATION,
-        "activation_ms": CERTIFICATE_TEST_ACTIVATION, "ticks": ticks, "rates": rates,
+        "observation_id": "1", "observed_at": activation_ms,
+        "cutoff_ms": activation_ms,
+        "activation_ms": activation_ms, "ticks": ticks, "rates": rates,
     })
     return machine
 
@@ -391,6 +394,84 @@ def test_activity_inside_certified_daily_slot_overrides_absence_certificate():
     }]
 
 
+def test_exact_sep9_daily_closure_accepts_only_the_certified_m15_slots():
+    missing = slots(SEP9_DAILY_START, SEP9_DAILY_END, M15)
+    machine = certificate_machine(m15_omissions=missing)
+    assert machine.initialized and machine.pending_gaps == []
+    assert SEP9_DAILY_START - M15 in machine.known["m15"]
+    assert SEP9_DAILY_END in machine.known["m15"]
+
+
+def test_sep9_daily_closure_boundaries_remain_fail_closed():
+    at_2345 = SEP9_DAILY_START - M15
+    at_reopen = SEP9_DAILY_END
+    machine = certificate_machine(
+        m15_omissions=slots(SEP9_DAILY_START, SEP9_DAILY_END, M15)
+        | {at_2345, at_reopen},
+    )
+    assert {gap["open_time"] for gap in machine.pending_gaps} == {
+        at_2345, at_reopen,
+    }
+    assert all(gap["reason"] == "unresolved_candle_or_session_closure"
+               for gap in machine.pending_gaps)
+
+
+def test_sep9_daily_closure_does_not_create_a_recurring_session_rule():
+    other_date_start = SEP9_DAILY_START + 24 * 60 * 60_000
+    missing = slots(other_date_start, other_date_start + 4 * M15, M15)
+    machine = certificate_machine(
+        m15_omissions=missing, activation_ms=other_date_start + 5 * 60 * 60_000,
+    )
+    assert {gap["open_time"] for gap in machine.pending_gaps} == missing
+    assert all(gap["reason"] == "unresolved_candle_or_session_closure"
+               for gap in machine.pending_gaps)
+    assert not machine.initialized
+
+
+@pytest.mark.parametrize("activity", ["tick", "m1"])
+def test_activity_inside_certified_sep9_daily_slot_blocks_admission(activity):
+    kwargs = ({"tick_times": (SEP9_DAILY_START,)} if activity == "tick"
+              else {"m1_times": (SEP9_DAILY_START,)})
+    machine = certificate_machine(
+        m15_omissions=slots(SEP9_DAILY_START, SEP9_DAILY_END, M15), **kwargs,
+    )
+    assert machine.pending_gaps == [{
+        "timeframe": "m15", "open_time": SEP9_DAILY_START,
+        "finalized_at": SEP9_DAILY_START + M15,
+        "reason": "activity_proven_missing_candle",
+    }]
+
+
+@pytest.mark.parametrize("activity", ["tick", "m1"])
+def test_late_sep9_activity_is_rejected_before_capture_state_mutation(activity):
+    machine = certificate_machine(
+        m15_omissions=slots(SEP9_DAILY_START, SEP9_DAILY_END, M15),
+    )
+    before = deepcopy({key: value for key, value in machine.__dict__.items()
+                       if key != "engine"})
+    rates = {"m1": [], "m15": [], "h4": []}
+    ticks = []
+    if activity == "tick":
+        ticks.append({"tick_id": "late-sep9", "time_msc": SEP9_DAILY_START,
+                      "bid": 100.0, "ask": 100.1})
+    else:
+        rates["m1"].append({
+            "bar_id": f"m1:{SEP9_DAILY_START}", "open_time": SEP9_DAILY_START,
+            "finalized_at": SEP9_DAILY_START + DURATIONS["m1"], "timeframe": "m1",
+            "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0,
+            "tick_volume": 1, "spread": 10, "real_volume": 1,
+        })
+    with pytest.raises(ValueError, match="activity contradicts committed no-bar certificate"):
+        machine.observe({
+            "observation_id": "2", "observed_at": CERTIFICATE_TEST_ACTIVATION,
+            "cutoff_ms": CERTIFICATE_TEST_ACTIVATION,
+            "activation_ms": CERTIFICATE_TEST_ACTIVATION,
+            "ticks": ticks, "rates": rates,
+        })
+    assert {key: value for key, value in machine.__dict__.items()
+            if key != "engine"} == before
+
+
 def test_closure_manifest_is_exact_and_frozen_v1_bytes_match_canonical_git():
     assert CERTIFIED_NO_BAR_INTERVALS == (
         {"certificate_id": "xm9-gold-2026-09-04-daily-closure",
@@ -405,6 +486,10 @@ def test_closure_manifest_is_exact_and_frozen_v1_bytes_match_canonical_git():
          "source_server": "XMGlobal-MT5 9", "symbol": "GOLD",
          "timeframes": frozenset(("m15",)),
          "start_ms": SEP7_EARLY_START, "end_ms": SEP7_EARLY_END},
+        {"certificate_id": "xm9-gold-2026-09-09-daily-closure",
+         "source_server": "XMGlobal-MT5 9", "symbol": "GOLD",
+         "timeframes": frozenset(("m15",)),
+         "start_ms": SEP9_DAILY_START, "end_ms": SEP9_DAILY_END},
     )
     assert len(verify_frozen_production_sources(Path("."))) == 22
     frozen_paths = [*FROZEN_PRODUCTION_SOURCE_SHA256, *FROZEN_PINESCRIPT_SOURCE_SHA256]
