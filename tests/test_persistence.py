@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 from dataclasses import replace
 import json
 import sqlite3
@@ -215,13 +216,13 @@ def test_schema_and_checkpoint_version_mismatches_are_never_absence(tmp_path) ->
     path = tmp_path / "versions.db"
     identity = _identity()
     SQLiteCheckpointStore(path).save_checkpoint(identity, _state_at(2))
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute("PRAGMA user_version=2")
     with pytest.raises(SchemaVersionError):
         SQLiteCheckpointStore(path).load_checkpoint(identity)
     path.unlink()
     SQLiteCheckpointStore(path).save_checkpoint(identity, _state_at(2))
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute("UPDATE checkpoints SET checkpoint_version=99")
     with pytest.raises(CheckpointVersionError):
         SQLiteCheckpointStore(path).load_checkpoint(identity)

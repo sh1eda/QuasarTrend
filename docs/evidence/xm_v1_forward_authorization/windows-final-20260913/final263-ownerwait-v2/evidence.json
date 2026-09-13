@@ -1,0 +1,639 @@
+{
+  "after": {
+    "branch": "",
+    "capture_authorized": false,
+    "dirty_paths": [
+      "M tests/test_forward_capture_integrity.py",
+      " M tests/test_persistence.py",
+      "?? tests/test_forward_authorization_blockers.py",
+      "?? tests/test_forward_history_probe.py",
+      "?? tests/test_forward_validation_evidence.py",
+      "?? tools/probe_xm_forward_history.py",
+      "?? tools/validate_xm_forward_recovery.py"
+    ],
+    "frozen_22": {
+      "references/pinescript/hema_trend.pine": "298d26ee6114b2f5f05b7031f2c3154a5a5fd92d669c7c932684a87af50e58a4",
+      "references/pinescript/kalman_step_signals.pine": "794c4f4ab7311c120fea64ccfada57a6d5135cf1a205b1872b6f9360175f36e4",
+      "references/pinescript/parity_export.pine": "9499a74a2590fb3c9117d683ba694bbf03e084db2e07d9e15497260e7bf7291e",
+      "src/quasartrend/backtest/__init__.py": "fe9a2d39b96d2ca527c8121fac3a082b4f72912e6a7e334fddca8e714936a5f0",
+      "src/quasartrend/backtest/engine.py": "9a6ddea5538c459677f24bbc0579e8a43a6e65b73be4157009abb1a43ca0b69e",
+      "src/quasartrend/backtest/metrics.py": "a760cbdb2714493543c1db64fa8c64e27e37be1dda4cba6003b7f213d3ec146a",
+      "src/quasartrend/backtest/models.py": "7f3c59b336a25fb09f06801162a2296236b7d2a6b98174a7f0a2ad9afd9fcb48",
+      "src/quasartrend/indicators/__init__.py": "6a7d92e3221c089b870166542f65f1dc5977a1a0e85aa23343a7e939524e49e6",
+      "src/quasartrend/indicators/diagnostics.py": "2418bed4ce087aa7fabe0044c2aaca7b0f43d2f39b7fe6bce24be2517fc0501a",
+      "src/quasartrend/indicators/golden.py": "61bb97f2a03c0d2ea923d51282080d93af4c228efad9525f7350603cddd4453c",
+      "src/quasartrend/indicators/hema.py": "7b8320b267db578616ab5cfaee0776ebe75001a1a13c490e02688fdc35021ff7",
+      "src/quasartrend/indicators/kalman.py": "394544481b317793a5692aeb4afb18516642fe2e025eb87b51acbc323ff92cd6",
+      "src/quasartrend/indicators/models.py": "d17b4bf284da8748f060607c7be74a5095baa87073c5b28df03f6d2b3069e3c6",
+      "src/quasartrend/indicators/moving_averages.py": "5c0cac63c288e0dc15b6963f221ea8a3c71b0f76a2ab44fbe2998a70467bbdf2",
+      "src/quasartrend/indicators/pine.py": "a39d436726de8e1846b49558797081ec242a533d0cb307be40fed3d75f92daf7",
+      "src/quasartrend/replay/__init__.py": "dd25089e1dbbb22eda4565b17224a08bca08087e610480d4c10c45a84ad1421c",
+      "src/quasartrend/replay/engine.py": "a6d596f14a93614d037443c2d84f6e1517261caeb37abbddcce30f7d7d1cf86a",
+      "src/quasartrend/replay/models.py": "2377ca0b7d3bb1f713d0426e7e41a7c344dfff1a9d928ba71e1c62b6d52dfc9e",
+      "src/quasartrend/research/xm_gold_compatibility.py": "e8b3ca32f313320c6846d6ef79f79f217a1b2efe92a487b93bd2e5544fdc2c9c",
+      "src/quasartrend/strategy/__init__.py": "287924ce3473dffd6d755e3684aa4aac3fe229735701a7ef73e5105d5e7d5326",
+      "src/quasartrend/strategy/engine.py": "719b4f89423b06ee161bbbfd5b207a499ebc80f9c7e4a08d303be7dd5e896f62",
+      "src/quasartrend/strategy/models.py": "bb41775c4c60b1661c45e521e494e7d59d70fc06607cd3c69dfd999153998904"
+    },
+    "head": "08c1e0dc0e981a641c60fb49d800988fcb3816c2",
+    "imported_runtime": {
+      "quasartrend": {
+        "path": "src/quasartrend/__init__.py",
+        "sha256": "131870aec260847374ebce33a91e66923090959d061ae9778c4683f4df19a0f0"
+      },
+      "quasartrend.backtest": {
+        "path": "src/quasartrend/backtest/__init__.py",
+        "sha256": "fe9a2d39b96d2ca527c8121fac3a082b4f72912e6a7e334fddca8e714936a5f0"
+      },
+      "quasartrend.backtest.engine": {
+        "path": "src/quasartrend/backtest/engine.py",
+        "sha256": "9a6ddea5538c459677f24bbc0579e8a43a6e65b73be4157009abb1a43ca0b69e"
+      },
+      "quasartrend.backtest.metrics": {
+        "path": "src/quasartrend/backtest/metrics.py",
+        "sha256": "a760cbdb2714493543c1db64fa8c64e27e37be1dda4cba6003b7f213d3ec146a"
+      },
+      "quasartrend.backtest.models": {
+        "path": "src/quasartrend/backtest/models.py",
+        "sha256": "7f3c59b336a25fb09f06801162a2296236b7d2a6b98174a7f0a2ad9afd9fcb48"
+      },
+      "quasartrend.forward": {
+        "path": "src/quasartrend/forward/__init__.py",
+        "sha256": "ed2a0f52da3ef64518665682febec7defe4928dacecdbbc8b457329b38cace91"
+      },
+      "quasartrend.forward.capture": {
+        "path": "src/quasartrend/forward/capture.py",
+        "sha256": "b6f77f277c8c70feb121c316a4d5506f2df9fd592dd55a2a9f16767f1b93e69e"
+      },
+      "quasartrend.forward.durable": {
+        "path": "src/quasartrend/forward/durable.py",
+        "sha256": "d289004067cf107fd16ad1f3a0ca96b54dc589715bbf35a6a67d609de05ff784"
+      },
+      "quasartrend.forward.mt5": {
+        "path": "src/quasartrend/forward/mt5.py",
+        "sha256": "cb3ccf24e90d7a387395aa2ea761af2fc0c11e05381f5aa2b3b57182b09f0ce2"
+      },
+      "quasartrend.forward.xm": {
+        "path": "src/quasartrend/forward/xm.py",
+        "sha256": "d3229bc1a28066fdc1b909604fb54a639a53b7bef6cad2f4306b1e2cce34d175"
+      },
+      "quasartrend.indicators": {
+        "path": "src/quasartrend/indicators/__init__.py",
+        "sha256": "6a7d92e3221c089b870166542f65f1dc5977a1a0e85aa23343a7e939524e49e6"
+      },
+      "quasartrend.indicators.hema": {
+        "path": "src/quasartrend/indicators/hema.py",
+        "sha256": "7b8320b267db578616ab5cfaee0776ebe75001a1a13c490e02688fdc35021ff7"
+      },
+      "quasartrend.indicators.kalman": {
+        "path": "src/quasartrend/indicators/kalman.py",
+        "sha256": "394544481b317793a5692aeb4afb18516642fe2e025eb87b51acbc323ff92cd6"
+      },
+      "quasartrend.indicators.models": {
+        "path": "src/quasartrend/indicators/models.py",
+        "sha256": "d17b4bf284da8748f060607c7be74a5095baa87073c5b28df03f6d2b3069e3c6"
+      },
+      "quasartrend.indicators.moving_averages": {
+        "path": "src/quasartrend/indicators/moving_averages.py",
+        "sha256": "5c0cac63c288e0dc15b6963f221ea8a3c71b0f76a2ab44fbe2998a70467bbdf2"
+      },
+      "quasartrend.indicators.pine": {
+        "path": "src/quasartrend/indicators/pine.py",
+        "sha256": "a39d436726de8e1846b49558797081ec242a533d0cb307be40fed3d75f92daf7"
+      },
+      "quasartrend.persistence": {
+        "path": "src/quasartrend/persistence/__init__.py",
+        "sha256": "6bbcab53b3333b8722127bf20b98d2173d154c62022be5897ae73a35aa88c849"
+      },
+      "quasartrend.persistence.codec": {
+        "path": "src/quasartrend/persistence/codec.py",
+        "sha256": "6371cc34fdd530da2ad74f9213b8ebbfe316ab69e4638b384e84e03bf0a0e22f"
+      },
+      "quasartrend.persistence.models": {
+        "path": "src/quasartrend/persistence/models.py",
+        "sha256": "800feddf31c2db2ba10a4d14b5c8c307c0df2f963aba2ec061f1d5ef9ad59f4e"
+      },
+      "quasartrend.persistence.sqlite": {
+        "path": "src/quasartrend/persistence/sqlite.py",
+        "sha256": "d580738cb1b7ea40cf415362c4451b03792e859e6b1f258074b984b2e1ce8dd2"
+      },
+      "quasartrend.replay": {
+        "path": "src/quasartrend/replay/__init__.py",
+        "sha256": "dd25089e1dbbb22eda4565b17224a08bca08087e610480d4c10c45a84ad1421c"
+      },
+      "quasartrend.replay.engine": {
+        "path": "src/quasartrend/replay/engine.py",
+        "sha256": "a6d596f14a93614d037443c2d84f6e1517261caeb37abbddcce30f7d7d1cf86a"
+      },
+      "quasartrend.replay.models": {
+        "path": "src/quasartrend/replay/models.py",
+        "sha256": "2377ca0b7d3bb1f713d0426e7e41a7c344dfff1a9d928ba71e1c62b6d52dfc9e"
+      },
+      "quasartrend.research": {
+        "path": "src/quasartrend/research/__init__.py",
+        "sha256": "5bde17c154465d06c087b948cfd7e0195b8ab1d8c33531c6d978763ccfc266cf"
+      },
+      "quasartrend.research.adr": {
+        "path": "src/quasartrend/research/adr.py",
+        "sha256": "7c7e6fa0bad460978391941418844b0646ce5f6d559a36a64bfc040b3132f602"
+      },
+      "quasartrend.research.candidates": {
+        "path": "src/quasartrend/research/candidates.py",
+        "sha256": "467a2485651e71617d4f893e047a401706db60cbec6b89a7bf984711584c4933"
+      },
+      "quasartrend.research.dataset": {
+        "path": "src/quasartrend/research/dataset.py",
+        "sha256": "a28e5cae19651e17841a8ff6fdbf7ecfbac951fb55e2441f732efc1089a292c4"
+      },
+      "quasartrend.research.experiments": {
+        "path": "src/quasartrend/research/experiments.py",
+        "sha256": "b7eefcc6122e276cc3aeb9b630245ea42ae354b7766785efe7bc88ea5bf1014d"
+      },
+      "quasartrend.research.market_transfer": {
+        "path": "src/quasartrend/research/market_transfer.py",
+        "sha256": "90316dea77e725674fdb57fadcb8c4f76711aaeb9d4628dce218d0ca9d729316"
+      },
+      "quasartrend.research.metrics": {
+        "path": "src/quasartrend/research/metrics.py",
+        "sha256": "d0364d96ca0facd7e43dee61b73bd9864e5e9ec5cb08d9aa85a10616aaf6d4e3"
+      },
+      "quasartrend.research.models": {
+        "path": "src/quasartrend/research/models.py",
+        "sha256": "ed622495f32f5cfec48fd7d3aae8df1000125d29fb4788c91a4380249c8d0529"
+      },
+      "quasartrend.research.pipeline": {
+        "path": "src/quasartrend/research/pipeline.py",
+        "sha256": "dbbc4a09a49acb3da3da56348685265d676668b49e4fb1d06fabe67d90c8fe4c"
+      },
+      "quasartrend.research.provenance": {
+        "path": "src/quasartrend/research/provenance.py",
+        "sha256": "a1c9b5e77b312f0968aacdbe2aabd27810e26686d8f1d60530dcc3afeb83f7b2"
+      },
+      "quasartrend.research.source": {
+        "path": "src/quasartrend/research/source.py",
+        "sha256": "a4ef244d6c28b925b366063dfc9bc0aee0027aa147026f1ca3c3423f077057d3"
+      },
+      "quasartrend.research.splits": {
+        "path": "src/quasartrend/research/splits.py",
+        "sha256": "f4343d800008fbb44712afe88ddf6e5960866860cd9bb15138dff8ec38db91f0"
+      },
+      "quasartrend.research.xau_robustness": {
+        "path": "src/quasartrend/research/xau_robustness.py",
+        "sha256": "591b68fdcff54b2c84e0daf63ffb74bb3fb97cabf4f28e887aec1e354a630c5e"
+      },
+      "quasartrend.research.xm_gold_compatibility": {
+        "path": "src/quasartrend/research/xm_gold_compatibility.py",
+        "sha256": "e8b3ca32f313320c6846d6ef79f79f217a1b2efe92a487b93bd2e5544fdc2c9c"
+      },
+      "quasartrend.research.xm_gold_historical_validation": {
+        "path": "src/quasartrend/research/xm_gold_historical_validation.py",
+        "sha256": "cff5ac7b76776bf080062164c239fc93ea4929dad8bf52cbcf2fa99ae659b556"
+      },
+      "quasartrend.strategy": {
+        "path": "src/quasartrend/strategy/__init__.py",
+        "sha256": "287924ce3473dffd6d755e3684aa4aac3fe229735701a7ef73e5105d5e7d5326"
+      },
+      "quasartrend.strategy.engine": {
+        "path": "src/quasartrend/strategy/engine.py",
+        "sha256": "719b4f89423b06ee161bbbfd5b207a499ebc80f9c7e4a08d303be7dd5e896f62"
+      },
+      "quasartrend.strategy.models": {
+        "path": "src/quasartrend/strategy/models.py",
+        "sha256": "bb41775c4c60b1661c45e521e494e7d59d70fc06607cd3c69dfd999153998904"
+      }
+    },
+    "source_lf_verified": true,
+    "source_sha256": {
+      "pyproject.toml": "3abf51044a4c41110b0b4dd586be5133539727e8123721bff4bed724ce111e4b",
+      "references/pinescript/hema_trend.pine": "298d26ee6114b2f5f05b7031f2c3154a5a5fd92d669c7c932684a87af50e58a4",
+      "references/pinescript/kalman_step_signals.pine": "794c4f4ab7311c120fea64ccfada57a6d5135cf1a205b1872b6f9360175f36e4",
+      "references/pinescript/parity_export.pine": "9499a74a2590fb3c9117d683ba694bbf03e084db2e07d9e15497260e7bf7291e",
+      "src/quasartrend/__init__.py": "131870aec260847374ebce33a91e66923090959d061ae9778c4683f4df19a0f0",
+      "src/quasartrend/backtest/__init__.py": "fe9a2d39b96d2ca527c8121fac3a082b4f72912e6a7e334fddca8e714936a5f0",
+      "src/quasartrend/backtest/engine.py": "9a6ddea5538c459677f24bbc0579e8a43a6e65b73be4157009abb1a43ca0b69e",
+      "src/quasartrend/backtest/metrics.py": "a760cbdb2714493543c1db64fa8c64e27e37be1dda4cba6003b7f213d3ec146a",
+      "src/quasartrend/backtest/models.py": "7f3c59b336a25fb09f06801162a2296236b7d2a6b98174a7f0a2ad9afd9fcb48",
+      "src/quasartrend/execution/__init__.py": "d6d5a8d490e2f5743d99e99b76380f0fd8480605e12c3708c1689a21314f0d13",
+      "src/quasartrend/execution/engine.py": "1ff0509e3b447288b0756311f067b2d51f2c11e89f0522c77bd65bdc08f23bf2",
+      "src/quasartrend/execution/models.py": "6ced807f892a9d3e76300724d7aa178f5e1a8aa5051308bfb0a81ff0e80f4e71",
+      "src/quasartrend/execution/paper.py": "da0de61120f0a891b02a5775bd4cb76b4ffe60e23cd493d350831a16ae193cf4",
+      "src/quasartrend/execution/sqlite.py": "72d6fd0a116dd3602dfddb2b0ae1648157f773ae4ece604b641b3631d96c0e6d",
+      "src/quasartrend/forward/__init__.py": "ed2a0f52da3ef64518665682febec7defe4928dacecdbbc8b457329b38cace91",
+      "src/quasartrend/forward/capture.py": "b6f77f277c8c70feb121c316a4d5506f2df9fd592dd55a2a9f16767f1b93e69e",
+      "src/quasartrend/forward/durable.py": "d289004067cf107fd16ad1f3a0ca96b54dc589715bbf35a6a67d609de05ff784",
+      "src/quasartrend/forward/mt5.py": "cb3ccf24e90d7a387395aa2ea761af2fc0c11e05381f5aa2b3b57182b09f0ce2",
+      "src/quasartrend/forward/xm.py": "d3229bc1a28066fdc1b909604fb54a639a53b7bef6cad2f4306b1e2cce34d175",
+      "src/quasartrend/indicators/__init__.py": "6a7d92e3221c089b870166542f65f1dc5977a1a0e85aa23343a7e939524e49e6",
+      "src/quasartrend/indicators/diagnostics.py": "2418bed4ce087aa7fabe0044c2aaca7b0f43d2f39b7fe6bce24be2517fc0501a",
+      "src/quasartrend/indicators/golden.py": "61bb97f2a03c0d2ea923d51282080d93af4c228efad9525f7350603cddd4453c",
+      "src/quasartrend/indicators/hema.py": "7b8320b267db578616ab5cfaee0776ebe75001a1a13c490e02688fdc35021ff7",
+      "src/quasartrend/indicators/kalman.py": "394544481b317793a5692aeb4afb18516642fe2e025eb87b51acbc323ff92cd6",
+      "src/quasartrend/indicators/models.py": "d17b4bf284da8748f060607c7be74a5095baa87073c5b28df03f6d2b3069e3c6",
+      "src/quasartrend/indicators/moving_averages.py": "5c0cac63c288e0dc15b6963f221ea8a3c71b0f76a2ab44fbe2998a70467bbdf2",
+      "src/quasartrend/indicators/pine.py": "a39d436726de8e1846b49558797081ec242a533d0cb307be40fed3d75f92daf7",
+      "src/quasartrend/marketdata/__init__.py": "9b99693e34d6af6e18c2e63cbe0d2f470fc1cd7e26b2b28c734fc8627594a29a",
+      "src/quasartrend/marketdata/binance.py": "b019b1cbaffe128e8f32ee7573e28993fcaf6d683a762df89714c866ad9f5269",
+      "src/quasartrend/marketdata/client.py": "1dcba47fb31c1855d22f092378e0ae73586f1e542c5af40aa99fec68491ef0ee",
+      "src/quasartrend/marketdata/models.py": "8360641b267cb786fadb0fc60da84e616605b8cc64382e90ac20c1bde241f7be",
+      "src/quasartrend/persistence/__init__.py": "6bbcab53b3333b8722127bf20b98d2173d154c62022be5897ae73a35aa88c849",
+      "src/quasartrend/persistence/codec.py": "6371cc34fdd530da2ad74f9213b8ebbfe316ab69e4638b384e84e03bf0a0e22f",
+      "src/quasartrend/persistence/models.py": "800feddf31c2db2ba10a4d14b5c8c307c0df2f963aba2ec061f1d5ef9ad59f4e",
+      "src/quasartrend/persistence/sqlite.py": "d580738cb1b7ea40cf415362c4451b03792e859e6b1f258074b984b2e1ce8dd2",
+      "src/quasartrend/replay/__init__.py": "dd25089e1dbbb22eda4565b17224a08bca08087e610480d4c10c45a84ad1421c",
+      "src/quasartrend/replay/engine.py": "a6d596f14a93614d037443c2d84f6e1517261caeb37abbddcce30f7d7d1cf86a",
+      "src/quasartrend/replay/models.py": "2377ca0b7d3bb1f713d0426e7e41a7c344dfff1a9d928ba71e1c62b6d52dfc9e",
+      "src/quasartrend/research/__init__.py": "5bde17c154465d06c087b948cfd7e0195b8ab1d8c33531c6d978763ccfc266cf",
+      "src/quasartrend/research/adr.py": "7c7e6fa0bad460978391941418844b0646ce5f6d559a36a64bfc040b3132f602",
+      "src/quasartrend/research/candidates.py": "467a2485651e71617d4f893e047a401706db60cbec6b89a7bf984711584c4933",
+      "src/quasartrend/research/dataset.py": "a28e5cae19651e17841a8ff6fdbf7ecfbac951fb55e2441f732efc1089a292c4",
+      "src/quasartrend/research/edge_attribution.py": "8b5b805f72575ecaf0d655f47438d67d52fb987a68d0ed7f0d753ff414e740bc",
+      "src/quasartrend/research/exit_counterfactuals.py": "a22eec1416901a9d7ec5ae64aff6cec165ae22d6e11cfac7d25ef611da2d176c",
+      "src/quasartrend/research/exit_efficiency.py": "4f53087125ac013b470a7d64173a114d909ea95da02371547e73a191c40cdc13",
+      "src/quasartrend/research/exit_experiments.py": "ff6f776fb430e8653d631911accb2b3691412ea82ec424bfd295be692a9e8117",
+      "src/quasartrend/research/experiments.py": "b7eefcc6122e276cc3aeb9b630245ea42ae354b7766785efe7bc88ea5bf1014d",
+      "src/quasartrend/research/failure_modes.py": "0b80b7f432e1984b526b28b8cb93344ea73ddff800b2946cb0f1820bf3218e78",
+      "src/quasartrend/research/market_transfer.py": "90316dea77e725674fdb57fadcb8c4f76711aaeb9d4628dce218d0ca9d729316",
+      "src/quasartrend/research/metrics.py": "d0364d96ca0facd7e43dee61b73bd9864e5e9ec5cb08d9aa85a10616aaf6d4e3",
+      "src/quasartrend/research/models.py": "ed622495f32f5cfec48fd7d3aae8df1000125d29fb4788c91a4380249c8d0529",
+      "src/quasartrend/research/pipeline.py": "dbbc4a09a49acb3da3da56348685265d676668b49e4fb1d06fabe67d90c8fe4c",
+      "src/quasartrend/research/provenance.py": "a1c9b5e77b312f0968aacdbe2aabd27810e26686d8f1d60530dcc3afeb83f7b2",
+      "src/quasartrend/research/regime_candidates.py": "dd25ccd2b23139c45822e5f147058fdd64fc22c382712e13c808d4999a17edd7",
+      "src/quasartrend/research/regime_diagnosis.py": "fdd6c0cd51b9b417d782ec40c9d50e1865084cf908ce5d106f727e044fe073e5",
+      "src/quasartrend/research/regime_features.py": "5a5038ff81d75abab002bb85256c8852b0d2e591725ab92d4b11a1629f96b437",
+      "src/quasartrend/research/source.py": "a4ef244d6c28b925b366063dfc9bc0aee0027aa147026f1ca3c3423f077057d3",
+      "src/quasartrend/research/splits.py": "f4343d800008fbb44712afe88ddf6e5960866860cd9bb15138dff8ec38db91f0",
+      "src/quasartrend/research/xau_directional_edge_attribution.py": "89e6ab90e56b6acd33225652161cd71415a7b3c678aa5ec7734e3796bd340b25",
+      "src/quasartrend/research/xau_directional_hypothesis_confirmation.py": "3c360faa0859b3f5e14f59bdfa7491ea9703437038dad3ffbc86bb176a51b2a6",
+      "src/quasartrend/research/xau_real_broker_cost_calibration.py": "7b9462414eaf9539c2ce3d95e0ecf246de2f28c4544be04044ed111b74c67adc",
+      "src/quasartrend/research/xau_real_broker_cost_calibration_result.py": "2aeabdf16ed074a53cc81876d3ea92900724476e5525c86cf448b71e365b42de",
+      "src/quasartrend/research/xau_robustness.py": "591b68fdcff54b2c84e0daf63ffb74bb3fb97cabf4f28e887aec1e354a630c5e",
+      "src/quasartrend/research/xau_v2_family1.py": "dc9838cf79f77d7ea1f268c7a358db016cdd28b980a7f2b160f2305b0eab5e18",
+      "src/quasartrend/research/xau_v2_initialization.py": "586345bb2ed25ff553429c7fdfddc8dd58a32c2dde70c0a5309fa2f10ecb2ebe",
+      "src/quasartrend/research/xm_gold_compatibility.py": "e8b3ca32f313320c6846d6ef79f79f217a1b2efe92a487b93bd2e5544fdc2c9c",
+      "src/quasartrend/research/xm_gold_historical_validation.py": "cff5ac7b76776bf080062164c239fc93ea4929dad8bf52cbcf2fa99ae659b556",
+      "src/quasartrend/runtime/__init__.py": "68db4f0e150fefabc55a686123de4e91a7838b3bfd736ee5f7618431731f7d84",
+      "src/quasartrend/runtime/clock.py": "e5a0a1b08f2c2d7329c5b47b84a37a29e6b88da306dfdf00a78f7ae34f377ea9",
+      "src/quasartrend/runtime/engine.py": "1e6d7602e7b6662f8f4c9381c580cb2395e26cb18e93d347383a1e0be272ca4e",
+      "src/quasartrend/runtime/models.py": "bf607bcf8630ea9f104d63dbab12cda36a884ba0d6fffb9b7b336fd7706e7656",
+      "src/quasartrend/strategy/__init__.py": "287924ce3473dffd6d755e3684aa4aac3fe229735701a7ef73e5105d5e7d5326",
+      "src/quasartrend/strategy/engine.py": "719b4f89423b06ee161bbbfd5b207a499ebc80f9c7e4a08d303be7dd5e896f62",
+      "src/quasartrend/strategy/models.py": "bb41775c4c60b1661c45e521e494e7d59d70fc06607cd3c69dfd999153998904",
+      "tests/test_batch_incremental.py": "d00d240d1d3f3f311b46d95ddbbb809bafee881057cd8f27fee08e2e0f110f41",
+      "tests/test_checkpoints.py": "1c89c738f21091fa80af64dae5d3b1833b561e4af65d397d5e5bc2c8cfc0f7cc",
+      "tests/test_forward_authorization_blockers.py": "15e62d727e2376827979d31e5054719ea98505f2cadaaef855c7d5fd22a0489d",
+      "tests/test_forward_capture_integrity.py": "b2cb0dbf8dcf2e94dc944b7a1188b83b83db2a32f775ba1d70fd111c0ca5c8ca",
+      "tests/test_forward_mt5.py": "e77ed09c20ce80f2651c9fcf01fd9c5295eb9e371f6408e69e4a66e9691b2fb4",
+      "tests/test_forward_xm.py": "c78a8efe695bf8c43e08a4f949008542cdeafa368d251d31c5d2e0830192befd",
+      "tests/test_persistence.py": "efd8d77c49df6ef410c5ce9dbc85001623c3c275f9b6c4cb472c14d3b01ccf18",
+      "tests/test_replay.py": "36b22270cfdb18ad78e1a7f3395dec5153e1c7529593dc36ff1cf02a5d1a6b1c",
+      "tests/test_strategy_engine.py": "59a6f8a6b07c3c83e0504e952451123e2003101ea76c0a3e031b849f53efceba",
+      "tests/test_tradingview_golden.py": "a2dd8fb0ff5db2baf104a231b1aef252f20fe506c255480f3ca3e4b97364ff75",
+      "tests/test_xauusd_golden.py": "2440215cead99d408e058a2f78cf44ef22e05dff5a8ea88d7f6d96bc75f4299b",
+      "tools/validate_xm_forward_recovery.py": "721975200ea6458aa0662c0bf99cafe417fc5de46ba75f62d8b8fd5763012baa"
+    }
+  },
+  "authorization": "BLOCKED",
+  "before": {
+    "branch": "",
+    "capture_authorized": false,
+    "dirty_paths": [
+      "M tests/test_forward_capture_integrity.py",
+      " M tests/test_persistence.py",
+      "?? tests/test_forward_authorization_blockers.py",
+      "?? tests/test_forward_history_probe.py",
+      "?? tests/test_forward_validation_evidence.py",
+      "?? tools/probe_xm_forward_history.py",
+      "?? tools/validate_xm_forward_recovery.py"
+    ],
+    "frozen_22": {
+      "references/pinescript/hema_trend.pine": "298d26ee6114b2f5f05b7031f2c3154a5a5fd92d669c7c932684a87af50e58a4",
+      "references/pinescript/kalman_step_signals.pine": "794c4f4ab7311c120fea64ccfada57a6d5135cf1a205b1872b6f9360175f36e4",
+      "references/pinescript/parity_export.pine": "9499a74a2590fb3c9117d683ba694bbf03e084db2e07d9e15497260e7bf7291e",
+      "src/quasartrend/backtest/__init__.py": "fe9a2d39b96d2ca527c8121fac3a082b4f72912e6a7e334fddca8e714936a5f0",
+      "src/quasartrend/backtest/engine.py": "9a6ddea5538c459677f24bbc0579e8a43a6e65b73be4157009abb1a43ca0b69e",
+      "src/quasartrend/backtest/metrics.py": "a760cbdb2714493543c1db64fa8c64e27e37be1dda4cba6003b7f213d3ec146a",
+      "src/quasartrend/backtest/models.py": "7f3c59b336a25fb09f06801162a2296236b7d2a6b98174a7f0a2ad9afd9fcb48",
+      "src/quasartrend/indicators/__init__.py": "6a7d92e3221c089b870166542f65f1dc5977a1a0e85aa23343a7e939524e49e6",
+      "src/quasartrend/indicators/diagnostics.py": "2418bed4ce087aa7fabe0044c2aaca7b0f43d2f39b7fe6bce24be2517fc0501a",
+      "src/quasartrend/indicators/golden.py": "61bb97f2a03c0d2ea923d51282080d93af4c228efad9525f7350603cddd4453c",
+      "src/quasartrend/indicators/hema.py": "7b8320b267db578616ab5cfaee0776ebe75001a1a13c490e02688fdc35021ff7",
+      "src/quasartrend/indicators/kalman.py": "394544481b317793a5692aeb4afb18516642fe2e025eb87b51acbc323ff92cd6",
+      "src/quasartrend/indicators/models.py": "d17b4bf284da8748f060607c7be74a5095baa87073c5b28df03f6d2b3069e3c6",
+      "src/quasartrend/indicators/moving_averages.py": "5c0cac63c288e0dc15b6963f221ea8a3c71b0f76a2ab44fbe2998a70467bbdf2",
+      "src/quasartrend/indicators/pine.py": "a39d436726de8e1846b49558797081ec242a533d0cb307be40fed3d75f92daf7",
+      "src/quasartrend/replay/__init__.py": "dd25089e1dbbb22eda4565b17224a08bca08087e610480d4c10c45a84ad1421c",
+      "src/quasartrend/replay/engine.py": "a6d596f14a93614d037443c2d84f6e1517261caeb37abbddcce30f7d7d1cf86a",
+      "src/quasartrend/replay/models.py": "2377ca0b7d3bb1f713d0426e7e41a7c344dfff1a9d928ba71e1c62b6d52dfc9e",
+      "src/quasartrend/research/xm_gold_compatibility.py": "e8b3ca32f313320c6846d6ef79f79f217a1b2efe92a487b93bd2e5544fdc2c9c",
+      "src/quasartrend/strategy/__init__.py": "287924ce3473dffd6d755e3684aa4aac3fe229735701a7ef73e5105d5e7d5326",
+      "src/quasartrend/strategy/engine.py": "719b4f89423b06ee161bbbfd5b207a499ebc80f9c7e4a08d303be7dd5e896f62",
+      "src/quasartrend/strategy/models.py": "bb41775c4c60b1661c45e521e494e7d59d70fc06607cd3c69dfd999153998904"
+    },
+    "head": "08c1e0dc0e981a641c60fb49d800988fcb3816c2",
+    "imported_runtime": {
+      "quasartrend": {
+        "path": "src/quasartrend/__init__.py",
+        "sha256": "131870aec260847374ebce33a91e66923090959d061ae9778c4683f4df19a0f0"
+      },
+      "quasartrend.backtest": {
+        "path": "src/quasartrend/backtest/__init__.py",
+        "sha256": "fe9a2d39b96d2ca527c8121fac3a082b4f72912e6a7e334fddca8e714936a5f0"
+      },
+      "quasartrend.backtest.engine": {
+        "path": "src/quasartrend/backtest/engine.py",
+        "sha256": "9a6ddea5538c459677f24bbc0579e8a43a6e65b73be4157009abb1a43ca0b69e"
+      },
+      "quasartrend.backtest.metrics": {
+        "path": "src/quasartrend/backtest/metrics.py",
+        "sha256": "a760cbdb2714493543c1db64fa8c64e27e37be1dda4cba6003b7f213d3ec146a"
+      },
+      "quasartrend.backtest.models": {
+        "path": "src/quasartrend/backtest/models.py",
+        "sha256": "7f3c59b336a25fb09f06801162a2296236b7d2a6b98174a7f0a2ad9afd9fcb48"
+      },
+      "quasartrend.forward": {
+        "path": "src/quasartrend/forward/__init__.py",
+        "sha256": "ed2a0f52da3ef64518665682febec7defe4928dacecdbbc8b457329b38cace91"
+      },
+      "quasartrend.forward.capture": {
+        "path": "src/quasartrend/forward/capture.py",
+        "sha256": "b6f77f277c8c70feb121c316a4d5506f2df9fd592dd55a2a9f16767f1b93e69e"
+      },
+      "quasartrend.forward.durable": {
+        "path": "src/quasartrend/forward/durable.py",
+        "sha256": "d289004067cf107fd16ad1f3a0ca96b54dc589715bbf35a6a67d609de05ff784"
+      },
+      "quasartrend.forward.mt5": {
+        "path": "src/quasartrend/forward/mt5.py",
+        "sha256": "cb3ccf24e90d7a387395aa2ea761af2fc0c11e05381f5aa2b3b57182b09f0ce2"
+      },
+      "quasartrend.forward.xm": {
+        "path": "src/quasartrend/forward/xm.py",
+        "sha256": "d3229bc1a28066fdc1b909604fb54a639a53b7bef6cad2f4306b1e2cce34d175"
+      },
+      "quasartrend.indicators": {
+        "path": "src/quasartrend/indicators/__init__.py",
+        "sha256": "6a7d92e3221c089b870166542f65f1dc5977a1a0e85aa23343a7e939524e49e6"
+      },
+      "quasartrend.indicators.hema": {
+        "path": "src/quasartrend/indicators/hema.py",
+        "sha256": "7b8320b267db578616ab5cfaee0776ebe75001a1a13c490e02688fdc35021ff7"
+      },
+      "quasartrend.indicators.kalman": {
+        "path": "src/quasartrend/indicators/kalman.py",
+        "sha256": "394544481b317793a5692aeb4afb18516642fe2e025eb87b51acbc323ff92cd6"
+      },
+      "quasartrend.indicators.models": {
+        "path": "src/quasartrend/indicators/models.py",
+        "sha256": "d17b4bf284da8748f060607c7be74a5095baa87073c5b28df03f6d2b3069e3c6"
+      },
+      "quasartrend.indicators.moving_averages": {
+        "path": "src/quasartrend/indicators/moving_averages.py",
+        "sha256": "5c0cac63c288e0dc15b6963f221ea8a3c71b0f76a2ab44fbe2998a70467bbdf2"
+      },
+      "quasartrend.indicators.pine": {
+        "path": "src/quasartrend/indicators/pine.py",
+        "sha256": "a39d436726de8e1846b49558797081ec242a533d0cb307be40fed3d75f92daf7"
+      },
+      "quasartrend.persistence": {
+        "path": "src/quasartrend/persistence/__init__.py",
+        "sha256": "6bbcab53b3333b8722127bf20b98d2173d154c62022be5897ae73a35aa88c849"
+      },
+      "quasartrend.persistence.codec": {
+        "path": "src/quasartrend/persistence/codec.py",
+        "sha256": "6371cc34fdd530da2ad74f9213b8ebbfe316ab69e4638b384e84e03bf0a0e22f"
+      },
+      "quasartrend.persistence.models": {
+        "path": "src/quasartrend/persistence/models.py",
+        "sha256": "800feddf31c2db2ba10a4d14b5c8c307c0df2f963aba2ec061f1d5ef9ad59f4e"
+      },
+      "quasartrend.persistence.sqlite": {
+        "path": "src/quasartrend/persistence/sqlite.py",
+        "sha256": "d580738cb1b7ea40cf415362c4451b03792e859e6b1f258074b984b2e1ce8dd2"
+      },
+      "quasartrend.replay": {
+        "path": "src/quasartrend/replay/__init__.py",
+        "sha256": "dd25089e1dbbb22eda4565b17224a08bca08087e610480d4c10c45a84ad1421c"
+      },
+      "quasartrend.replay.engine": {
+        "path": "src/quasartrend/replay/engine.py",
+        "sha256": "a6d596f14a93614d037443c2d84f6e1517261caeb37abbddcce30f7d7d1cf86a"
+      },
+      "quasartrend.replay.models": {
+        "path": "src/quasartrend/replay/models.py",
+        "sha256": "2377ca0b7d3bb1f713d0426e7e41a7c344dfff1a9d928ba71e1c62b6d52dfc9e"
+      },
+      "quasartrend.research": {
+        "path": "src/quasartrend/research/__init__.py",
+        "sha256": "5bde17c154465d06c087b948cfd7e0195b8ab1d8c33531c6d978763ccfc266cf"
+      },
+      "quasartrend.research.adr": {
+        "path": "src/quasartrend/research/adr.py",
+        "sha256": "7c7e6fa0bad460978391941418844b0646ce5f6d559a36a64bfc040b3132f602"
+      },
+      "quasartrend.research.candidates": {
+        "path": "src/quasartrend/research/candidates.py",
+        "sha256": "467a2485651e71617d4f893e047a401706db60cbec6b89a7bf984711584c4933"
+      },
+      "quasartrend.research.dataset": {
+        "path": "src/quasartrend/research/dataset.py",
+        "sha256": "a28e5cae19651e17841a8ff6fdbf7ecfbac951fb55e2441f732efc1089a292c4"
+      },
+      "quasartrend.research.experiments": {
+        "path": "src/quasartrend/research/experiments.py",
+        "sha256": "b7eefcc6122e276cc3aeb9b630245ea42ae354b7766785efe7bc88ea5bf1014d"
+      },
+      "quasartrend.research.market_transfer": {
+        "path": "src/quasartrend/research/market_transfer.py",
+        "sha256": "90316dea77e725674fdb57fadcb8c4f76711aaeb9d4628dce218d0ca9d729316"
+      },
+      "quasartrend.research.metrics": {
+        "path": "src/quasartrend/research/metrics.py",
+        "sha256": "d0364d96ca0facd7e43dee61b73bd9864e5e9ec5cb08d9aa85a10616aaf6d4e3"
+      },
+      "quasartrend.research.models": {
+        "path": "src/quasartrend/research/models.py",
+        "sha256": "ed622495f32f5cfec48fd7d3aae8df1000125d29fb4788c91a4380249c8d0529"
+      },
+      "quasartrend.research.pipeline": {
+        "path": "src/quasartrend/research/pipeline.py",
+        "sha256": "dbbc4a09a49acb3da3da56348685265d676668b49e4fb1d06fabe67d90c8fe4c"
+      },
+      "quasartrend.research.provenance": {
+        "path": "src/quasartrend/research/provenance.py",
+        "sha256": "a1c9b5e77b312f0968aacdbe2aabd27810e26686d8f1d60530dcc3afeb83f7b2"
+      },
+      "quasartrend.research.source": {
+        "path": "src/quasartrend/research/source.py",
+        "sha256": "a4ef244d6c28b925b366063dfc9bc0aee0027aa147026f1ca3c3423f077057d3"
+      },
+      "quasartrend.research.splits": {
+        "path": "src/quasartrend/research/splits.py",
+        "sha256": "f4343d800008fbb44712afe88ddf6e5960866860cd9bb15138dff8ec38db91f0"
+      },
+      "quasartrend.research.xau_robustness": {
+        "path": "src/quasartrend/research/xau_robustness.py",
+        "sha256": "591b68fdcff54b2c84e0daf63ffb74bb3fb97cabf4f28e887aec1e354a630c5e"
+      },
+      "quasartrend.research.xm_gold_compatibility": {
+        "path": "src/quasartrend/research/xm_gold_compatibility.py",
+        "sha256": "e8b3ca32f313320c6846d6ef79f79f217a1b2efe92a487b93bd2e5544fdc2c9c"
+      },
+      "quasartrend.research.xm_gold_historical_validation": {
+        "path": "src/quasartrend/research/xm_gold_historical_validation.py",
+        "sha256": "cff5ac7b76776bf080062164c239fc93ea4929dad8bf52cbcf2fa99ae659b556"
+      },
+      "quasartrend.strategy": {
+        "path": "src/quasartrend/strategy/__init__.py",
+        "sha256": "287924ce3473dffd6d755e3684aa4aac3fe229735701a7ef73e5105d5e7d5326"
+      },
+      "quasartrend.strategy.engine": {
+        "path": "src/quasartrend/strategy/engine.py",
+        "sha256": "719b4f89423b06ee161bbbfd5b207a499ebc80f9c7e4a08d303be7dd5e896f62"
+      },
+      "quasartrend.strategy.models": {
+        "path": "src/quasartrend/strategy/models.py",
+        "sha256": "bb41775c4c60b1661c45e521e494e7d59d70fc06607cd3c69dfd999153998904"
+      }
+    },
+    "source_lf_verified": true,
+    "source_sha256": {
+      "pyproject.toml": "3abf51044a4c41110b0b4dd586be5133539727e8123721bff4bed724ce111e4b",
+      "references/pinescript/hema_trend.pine": "298d26ee6114b2f5f05b7031f2c3154a5a5fd92d669c7c932684a87af50e58a4",
+      "references/pinescript/kalman_step_signals.pine": "794c4f4ab7311c120fea64ccfada57a6d5135cf1a205b1872b6f9360175f36e4",
+      "references/pinescript/parity_export.pine": "9499a74a2590fb3c9117d683ba694bbf03e084db2e07d9e15497260e7bf7291e",
+      "src/quasartrend/__init__.py": "131870aec260847374ebce33a91e66923090959d061ae9778c4683f4df19a0f0",
+      "src/quasartrend/backtest/__init__.py": "fe9a2d39b96d2ca527c8121fac3a082b4f72912e6a7e334fddca8e714936a5f0",
+      "src/quasartrend/backtest/engine.py": "9a6ddea5538c459677f24bbc0579e8a43a6e65b73be4157009abb1a43ca0b69e",
+      "src/quasartrend/backtest/metrics.py": "a760cbdb2714493543c1db64fa8c64e27e37be1dda4cba6003b7f213d3ec146a",
+      "src/quasartrend/backtest/models.py": "7f3c59b336a25fb09f06801162a2296236b7d2a6b98174a7f0a2ad9afd9fcb48",
+      "src/quasartrend/execution/__init__.py": "d6d5a8d490e2f5743d99e99b76380f0fd8480605e12c3708c1689a21314f0d13",
+      "src/quasartrend/execution/engine.py": "1ff0509e3b447288b0756311f067b2d51f2c11e89f0522c77bd65bdc08f23bf2",
+      "src/quasartrend/execution/models.py": "6ced807f892a9d3e76300724d7aa178f5e1a8aa5051308bfb0a81ff0e80f4e71",
+      "src/quasartrend/execution/paper.py": "da0de61120f0a891b02a5775bd4cb76b4ffe60e23cd493d350831a16ae193cf4",
+      "src/quasartrend/execution/sqlite.py": "72d6fd0a116dd3602dfddb2b0ae1648157f773ae4ece604b641b3631d96c0e6d",
+      "src/quasartrend/forward/__init__.py": "ed2a0f52da3ef64518665682febec7defe4928dacecdbbc8b457329b38cace91",
+      "src/quasartrend/forward/capture.py": "b6f77f277c8c70feb121c316a4d5506f2df9fd592dd55a2a9f16767f1b93e69e",
+      "src/quasartrend/forward/durable.py": "d289004067cf107fd16ad1f3a0ca96b54dc589715bbf35a6a67d609de05ff784",
+      "src/quasartrend/forward/mt5.py": "cb3ccf24e90d7a387395aa2ea761af2fc0c11e05381f5aa2b3b57182b09f0ce2",
+      "src/quasartrend/forward/xm.py": "d3229bc1a28066fdc1b909604fb54a639a53b7bef6cad2f4306b1e2cce34d175",
+      "src/quasartrend/indicators/__init__.py": "6a7d92e3221c089b870166542f65f1dc5977a1a0e85aa23343a7e939524e49e6",
+      "src/quasartrend/indicators/diagnostics.py": "2418bed4ce087aa7fabe0044c2aaca7b0f43d2f39b7fe6bce24be2517fc0501a",
+      "src/quasartrend/indicators/golden.py": "61bb97f2a03c0d2ea923d51282080d93af4c228efad9525f7350603cddd4453c",
+      "src/quasartrend/indicators/hema.py": "7b8320b267db578616ab5cfaee0776ebe75001a1a13c490e02688fdc35021ff7",
+      "src/quasartrend/indicators/kalman.py": "394544481b317793a5692aeb4afb18516642fe2e025eb87b51acbc323ff92cd6",
+      "src/quasartrend/indicators/models.py": "d17b4bf284da8748f060607c7be74a5095baa87073c5b28df03f6d2b3069e3c6",
+      "src/quasartrend/indicators/moving_averages.py": "5c0cac63c288e0dc15b6963f221ea8a3c71b0f76a2ab44fbe2998a70467bbdf2",
+      "src/quasartrend/indicators/pine.py": "a39d436726de8e1846b49558797081ec242a533d0cb307be40fed3d75f92daf7",
+      "src/quasartrend/marketdata/__init__.py": "9b99693e34d6af6e18c2e63cbe0d2f470fc1cd7e26b2b28c734fc8627594a29a",
+      "src/quasartrend/marketdata/binance.py": "b019b1cbaffe128e8f32ee7573e28993fcaf6d683a762df89714c866ad9f5269",
+      "src/quasartrend/marketdata/client.py": "1dcba47fb31c1855d22f092378e0ae73586f1e542c5af40aa99fec68491ef0ee",
+      "src/quasartrend/marketdata/models.py": "8360641b267cb786fadb0fc60da84e616605b8cc64382e90ac20c1bde241f7be",
+      "src/quasartrend/persistence/__init__.py": "6bbcab53b3333b8722127bf20b98d2173d154c62022be5897ae73a35aa88c849",
+      "src/quasartrend/persistence/codec.py": "6371cc34fdd530da2ad74f9213b8ebbfe316ab69e4638b384e84e03bf0a0e22f",
+      "src/quasartrend/persistence/models.py": "800feddf31c2db2ba10a4d14b5c8c307c0df2f963aba2ec061f1d5ef9ad59f4e",
+      "src/quasartrend/persistence/sqlite.py": "d580738cb1b7ea40cf415362c4451b03792e859e6b1f258074b984b2e1ce8dd2",
+      "src/quasartrend/replay/__init__.py": "dd25089e1dbbb22eda4565b17224a08bca08087e610480d4c10c45a84ad1421c",
+      "src/quasartrend/replay/engine.py": "a6d596f14a93614d037443c2d84f6e1517261caeb37abbddcce30f7d7d1cf86a",
+      "src/quasartrend/replay/models.py": "2377ca0b7d3bb1f713d0426e7e41a7c344dfff1a9d928ba71e1c62b6d52dfc9e",
+      "src/quasartrend/research/__init__.py": "5bde17c154465d06c087b948cfd7e0195b8ab1d8c33531c6d978763ccfc266cf",
+      "src/quasartrend/research/adr.py": "7c7e6fa0bad460978391941418844b0646ce5f6d559a36a64bfc040b3132f602",
+      "src/quasartrend/research/candidates.py": "467a2485651e71617d4f893e047a401706db60cbec6b89a7bf984711584c4933",
+      "src/quasartrend/research/dataset.py": "a28e5cae19651e17841a8ff6fdbf7ecfbac951fb55e2441f732efc1089a292c4",
+      "src/quasartrend/research/edge_attribution.py": "8b5b805f72575ecaf0d655f47438d67d52fb987a68d0ed7f0d753ff414e740bc",
+      "src/quasartrend/research/exit_counterfactuals.py": "a22eec1416901a9d7ec5ae64aff6cec165ae22d6e11cfac7d25ef611da2d176c",
+      "src/quasartrend/research/exit_efficiency.py": "4f53087125ac013b470a7d64173a114d909ea95da02371547e73a191c40cdc13",
+      "src/quasartrend/research/exit_experiments.py": "ff6f776fb430e8653d631911accb2b3691412ea82ec424bfd295be692a9e8117",
+      "src/quasartrend/research/experiments.py": "b7eefcc6122e276cc3aeb9b630245ea42ae354b7766785efe7bc88ea5bf1014d",
+      "src/quasartrend/research/failure_modes.py": "0b80b7f432e1984b526b28b8cb93344ea73ddff800b2946cb0f1820bf3218e78",
+      "src/quasartrend/research/market_transfer.py": "90316dea77e725674fdb57fadcb8c4f76711aaeb9d4628dce218d0ca9d729316",
+      "src/quasartrend/research/metrics.py": "d0364d96ca0facd7e43dee61b73bd9864e5e9ec5cb08d9aa85a10616aaf6d4e3",
+      "src/quasartrend/research/models.py": "ed622495f32f5cfec48fd7d3aae8df1000125d29fb4788c91a4380249c8d0529",
+      "src/quasartrend/research/pipeline.py": "dbbc4a09a49acb3da3da56348685265d676668b49e4fb1d06fabe67d90c8fe4c",
+      "src/quasartrend/research/provenance.py": "a1c9b5e77b312f0968aacdbe2aabd27810e26686d8f1d60530dcc3afeb83f7b2",
+      "src/quasartrend/research/regime_candidates.py": "dd25ccd2b23139c45822e5f147058fdd64fc22c382712e13c808d4999a17edd7",
+      "src/quasartrend/research/regime_diagnosis.py": "fdd6c0cd51b9b417d782ec40c9d50e1865084cf908ce5d106f727e044fe073e5",
+      "src/quasartrend/research/regime_features.py": "5a5038ff81d75abab002bb85256c8852b0d2e591725ab92d4b11a1629f96b437",
+      "src/quasartrend/research/source.py": "a4ef244d6c28b925b366063dfc9bc0aee0027aa147026f1ca3c3423f077057d3",
+      "src/quasartrend/research/splits.py": "f4343d800008fbb44712afe88ddf6e5960866860cd9bb15138dff8ec38db91f0",
+      "src/quasartrend/research/xau_directional_edge_attribution.py": "89e6ab90e56b6acd33225652161cd71415a7b3c678aa5ec7734e3796bd340b25",
+      "src/quasartrend/research/xau_directional_hypothesis_confirmation.py": "3c360faa0859b3f5e14f59bdfa7491ea9703437038dad3ffbc86bb176a51b2a6",
+      "src/quasartrend/research/xau_real_broker_cost_calibration.py": "7b9462414eaf9539c2ce3d95e0ecf246de2f28c4544be04044ed111b74c67adc",
+      "src/quasartrend/research/xau_real_broker_cost_calibration_result.py": "2aeabdf16ed074a53cc81876d3ea92900724476e5525c86cf448b71e365b42de",
+      "src/quasartrend/research/xau_robustness.py": "591b68fdcff54b2c84e0daf63ffb74bb3fb97cabf4f28e887aec1e354a630c5e",
+      "src/quasartrend/research/xau_v2_family1.py": "dc9838cf79f77d7ea1f268c7a358db016cdd28b980a7f2b160f2305b0eab5e18",
+      "src/quasartrend/research/xau_v2_initialization.py": "586345bb2ed25ff553429c7fdfddc8dd58a32c2dde70c0a5309fa2f10ecb2ebe",
+      "src/quasartrend/research/xm_gold_compatibility.py": "e8b3ca32f313320c6846d6ef79f79f217a1b2efe92a487b93bd2e5544fdc2c9c",
+      "src/quasartrend/research/xm_gold_historical_validation.py": "cff5ac7b76776bf080062164c239fc93ea4929dad8bf52cbcf2fa99ae659b556",
+      "src/quasartrend/runtime/__init__.py": "68db4f0e150fefabc55a686123de4e91a7838b3bfd736ee5f7618431731f7d84",
+      "src/quasartrend/runtime/clock.py": "e5a0a1b08f2c2d7329c5b47b84a37a29e6b88da306dfdf00a78f7ae34f377ea9",
+      "src/quasartrend/runtime/engine.py": "1e6d7602e7b6662f8f4c9381c580cb2395e26cb18e93d347383a1e0be272ca4e",
+      "src/quasartrend/runtime/models.py": "bf607bcf8630ea9f104d63dbab12cda36a884ba0d6fffb9b7b336fd7706e7656",
+      "src/quasartrend/strategy/__init__.py": "287924ce3473dffd6d755e3684aa4aac3fe229735701a7ef73e5105d5e7d5326",
+      "src/quasartrend/strategy/engine.py": "719b4f89423b06ee161bbbfd5b207a499ebc80f9c7e4a08d303be7dd5e896f62",
+      "src/quasartrend/strategy/models.py": "bb41775c4c60b1661c45e521e494e7d59d70fc06607cd3c69dfd999153998904",
+      "tests/test_batch_incremental.py": "d00d240d1d3f3f311b46d95ddbbb809bafee881057cd8f27fee08e2e0f110f41",
+      "tests/test_checkpoints.py": "1c89c738f21091fa80af64dae5d3b1833b561e4af65d397d5e5bc2c8cfc0f7cc",
+      "tests/test_forward_authorization_blockers.py": "15e62d727e2376827979d31e5054719ea98505f2cadaaef855c7d5fd22a0489d",
+      "tests/test_forward_capture_integrity.py": "b2cb0dbf8dcf2e94dc944b7a1188b83b83db2a32f775ba1d70fd111c0ca5c8ca",
+      "tests/test_forward_mt5.py": "e77ed09c20ce80f2651c9fcf01fd9c5295eb9e371f6408e69e4a66e9691b2fb4",
+      "tests/test_forward_xm.py": "c78a8efe695bf8c43e08a4f949008542cdeafa368d251d31c5d2e0830192befd",
+      "tests/test_persistence.py": "efd8d77c49df6ef410c5ce9dbc85001623c3c275f9b6c4cb472c14d3b01ccf18",
+      "tests/test_replay.py": "36b22270cfdb18ad78e1a7f3395dec5153e1c7529593dc36ff1cf02a5d1a6b1c",
+      "tests/test_strategy_engine.py": "59a6f8a6b07c3c83e0504e952451123e2003101ea76c0a3e031b849f53efceba",
+      "tests/test_tradingview_golden.py": "a2dd8fb0ff5db2baf104a231b1aef252f20fe506c255480f3ca3e4b97364ff75",
+      "tests/test_xauusd_golden.py": "2440215cead99d408e058a2f78cf44ef22e05dff5a8ea88d7f6d96bc75f4299b",
+      "tools/validate_xm_forward_recovery.py": "721975200ea6458aa0662c0bf99cafe417fc5de46ba75f62d8b8fd5763012baa"
+    }
+  },
+  "evidence_status": "COMPLETE_SYNTHETIC_EVIDENCE",
+  "execution": false,
+  "finished_utc": "2026-09-12T11:03:44.118009+00:00",
+  "gold_session_closure_completeness": "UNRESOLVED",
+  "mode": "OFFLINE",
+  "native_history_synchronization": "NOT_OBSERVED",
+  "native_terminal_restart_recovery": "NOT_OBSERVED",
+  "runtime": {
+    "interpreter_sha256": "9b7bffc26240463c965a2a2a5fada1d8e741c21c25cd2e977728c339b82d9977",
+    "machine": "AMD64",
+    "packages": {
+      "MetaTrader5": "5.0.6180",
+      "numpy": "2.5.3",
+      "pytest": "9.1.1",
+      "quasartrend": "0.1.0"
+    },
+    "python": "3.14.7",
+    "python_implementation": "CPython",
+    "release": "2019Server",
+    "system": "Windows"
+  },
+  "schema": "xm-forward-offline-recovery-evidence/v1",
+  "selection": [
+    "tests/test_forward_capture_integrity.py",
+    "tests/test_forward_mt5.py",
+    "tests/test_forward_xm.py",
+    "tests/test_replay.py",
+    "tests/test_strategy_engine.py",
+    "tests/test_persistence.py",
+    "tests/test_checkpoints.py",
+    "tests/test_batch_incremental.py",
+    "tests/test_xauusd_golden.py",
+    "tests/test_tradingview_golden.py",
+    "tests/test_forward_authorization_blockers.py"
+  ],
+  "source_unchanged": true,
+  "stage": "complete",
+  "started_utc": "2026-09-12T10:57:18.260820+00:00",
+  "synthetic_tests": {
+    "expected_tests": 263,
+    "failed": 0,
+    "junit_sha256": "542262dcd5b4b7307fc3f2a76d2e761d5db368269dfe6dd59ce82b80d6670ba6",
+    "returncode": 0,
+    "selection_complete": true,
+    "skipped": 0,
+    "tests": 263
+  },
+  "terminal_audit": {
+    "status": "NOT_OBSERVED"
+  }
+}

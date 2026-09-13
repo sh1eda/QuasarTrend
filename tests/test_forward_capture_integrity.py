@@ -355,29 +355,85 @@ def test_recovery_rejects_validly_framed_but_unreconciled_evidence(service_facto
         service_factory()
 
 
-def test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate(tmp_path):
+def locked_root_snapshot(root):
+    # Windows locks byte [0, 1) mandatorily. Read every evidence file while
+    # held; compare the permanent lock inode/size now and its bytes after release.
+    lock_path = root / '.xm-forward.lock'
+    stat = lock_path.stat()
+    return {
+        'lock_identity': (stat.st_dev, stat.st_ino, stat.st_size),
+        'evidence': {path.relative_to(root): path.read_bytes()
+                     for path in root.rglob('*') if path.is_file() and path != lock_path},
+    }
+
+
+@pytest.mark.parametrize('lock_bytes', [b'', b'lock-sentinel'], ids=['empty-lock', 'nonempty-lock'])
+def test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate(tmp_path, lock_bytes):
     root = tmp_path / 'root'
+    root.mkdir()
+    lock_path = root / '.xm-forward.lock'
+    lock_path.write_bytes(lock_bytes)
+    assert lock_path.read_bytes() == lock_bytes
     lock = EvidenceLock(root)
     (root / 'evidence').write_bytes(b'preserve')
-    before = {p.name: p.read_bytes() for p in root.iterdir()}
+    before = locked_root_snapshot(root)
     code = 'from pathlib import Path; from quasartrend.forward.durable import EvidenceLock; lock = EvidenceLock(Path(__import__("sys").argv[1]))'
     denied = subprocess.run([sys.executable, '-c', code, str(root)], capture_output=True, timeout=10)
     assert denied.returncode != 0 and b'already has a writer' in denied.stderr
-    assert {p.name: p.read_bytes() for p in root.iterdir()} == before
+    assert locked_root_snapshot(root) == before
     lock.close()
-    holder = subprocess.Popen([sys.executable, '-c', code + '; print("locked", flush=True); input()', str(root)], stdout=subprocess.PIPE, stdin=subprocess.PIPE, text=True)
+    assert lock_path.read_bytes() == lock_bytes
+    holder = subprocess.Popen([sys.executable, '-c', code + '; print(__import__("os").getpid(), flush=True); input()', str(root)], stdout=subprocess.PIPE, stdin=subprocess.PIPE, text=True)
+    owner_handle = None
     try:
-        assert holder.stdout.readline().strip() == 'locked'
+        owner_pid = int(holder.stdout.readline().strip())
+        assert owner_pid > 0 and holder.poll() is None
+        if os.name == 'nt':
+            import ctypes
+            from ctypes import wintypes
+            kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+            kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            kernel.OpenProcess.restype = wintypes.HANDLE
+            kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            kernel.WaitForSingleObject.restype = wintypes.DWORD
+            kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+            kernel.TerminateProcess.restype = wintypes.BOOL
+            kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+            kernel.CloseHandle.restype = wintypes.BOOL
+            # The venv launcher can exit before the interpreter holding the lock.
+            # Retain the actual owner's process handle before killing the launcher.
+            owner_handle = kernel.OpenProcess(0x00100000 | 0x0001, False, owner_pid)
+            assert owner_handle
+            assert kernel.WaitForSingleObject(owner_handle, 0) == 258  # still running
+        else:
+            assert owner_pid == holder.pid
         with pytest.raises(PermissionError, match='writer'):
             EvidenceLock(root)
         holder.kill()
         holder.wait(timeout=10)
+        if owner_handle:
+            assert kernel.WaitForSingleObject(owner_handle, 10_000) == 0
+        else:
+            assert holder.poll() is not None
+        # The actual owner is proven dead before the single recovery attempt.
         recovered = EvidenceLock(root)
         recovered.close()
+        assert locked_root_snapshot(root) == before
+        assert lock_path.read_bytes() == lock_bytes
     finally:
-        if holder.poll() is None:
-            holder.kill()
-            holder.wait(timeout=10)
+        try:
+            if owner_handle:
+                if kernel.WaitForSingleObject(owner_handle, 0) == 258:
+                    assert kernel.TerminateProcess(owner_handle, 1)
+                    assert kernel.WaitForSingleObject(owner_handle, 10_000) == 0
+        finally:
+            if owner_handle:
+                kernel.CloseHandle(owner_handle)
+            if holder.poll() is None:
+                holder.kill()
+                holder.wait(timeout=10)
+            holder.stdin.close()
+            holder.stdout.close()
 
 
 def test_constructor_failure_releases_lock_and_audit_does_not_activate(service_factory):
@@ -654,11 +710,19 @@ def test_capture_output_has_no_reserved_window_aggregate_economics(service_facto
         inspect(journal.rows)
 
 
-def test_rejected_second_service_does_not_mutate_evidence(service_factory):
+@pytest.mark.parametrize('lock_bytes', [b'', b'lock-sentinel'], ids=['empty-lock', 'nonempty-lock'])
+def test_rejected_second_service_does_not_mutate_evidence(service_factory, tmp_path, lock_bytes):
+    root = tmp_path / 'run'
+    root.mkdir()
+    lock_path = root / '.xm-forward.lock'
+    lock_path.write_bytes(lock_bytes)
+    assert lock_path.read_bytes() == lock_bytes
     service = service_factory()
     service.poll_once()
-    before = {path.relative_to(service.root): path.read_bytes() for path in service.root.rglob('*') if path.is_file()}
+    before = locked_root_snapshot(service.root)
     with pytest.raises(PermissionError, match='already has a writer'):
         service_factory()
-    after = {path.relative_to(service.root): path.read_bytes() for path in service.root.rglob('*') if path.is_file()}
+    after = locked_root_snapshot(service.root)
     assert after == before
+    service.close()
+    assert lock_path.read_bytes() == lock_bytes

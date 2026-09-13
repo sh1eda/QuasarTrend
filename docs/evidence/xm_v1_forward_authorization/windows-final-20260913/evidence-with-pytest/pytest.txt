@@ -1,0 +1,91 @@
+....................................F.....................F............. [ 28%]
+........................................................................ [ 56%]
+..................F............................................FFFFs.... [ 84%]
+..........ssssssssss.....................                                [100%]
+================================== FAILURES ===================================
+__ test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate __
+tests\test_forward_capture_integrity.py:362: in test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate
+    before = {p.name: p.read_bytes() for p in root.iterdir()}
+                      ^^^^^^^^^^^^^^
+..\..\..\..\Programs\Python\Python314\Lib\pathlib\__init__.py:778: in read_bytes
+    return f.read()
+           ^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied
+____________ test_rejected_second_service_does_not_mutate_evidence ____________
+tests\test_forward_capture_integrity.py:660: in test_rejected_second_service_does_not_mutate_evidence
+    before = {path.relative_to(service.root): path.read_bytes() for path in service.root.rglob('*') if path.is_file()}
+                                              ^^^^^^^^^^^^^^^^^
+..\..\..\..\Programs\Python\Python314\Lib\pathlib\__init__.py:778: in read_bytes
+    return f.read()
+           ^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied
+_______ test_schema_and_checkpoint_version_mismatches_are_never_absence _______
+tests\test_persistence.py:222: in test_schema_and_checkpoint_version_mismatches_are_never_absence
+    path.unlink()
+..\..\..\..\Programs\Python\Python314\Lib\pathlib\__init__.py:1042: in unlink
+    os.unlink(self)
+E   PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: '[HOME]\\AppData\\Local\\Temp\\2\\pytest-of-[REDACTED_USER]\\pytest-0\\test_schema_and_checkpoint_ver0\\versions.db'
+_____________ test_xauusd_visible_plot_export_parity[xauusd_15m] ______________
+tests\test_xauusd_golden.py:153: in test_xauusd_visible_plot_export_parity
+    rows = load_visible_plot_export(path, declared_symbol=XAUUSD, timeframe_seconds=timeframe_seconds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_xauusd_golden.py:78: in load_visible_plot_export
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\Programs\Python\Python314\Lib\pathlib\__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'exports\\xauusd_pending\\XAUUSD_15m.csv'
+______________ test_xauusd_visible_plot_export_parity[xauusd_4h] ______________
+tests\test_xauusd_golden.py:153: in test_xauusd_visible_plot_export_parity
+    rows = load_visible_plot_export(path, declared_symbol=XAUUSD, timeframe_seconds=timeframe_seconds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_xauusd_golden.py:78: in load_visible_plot_export
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\Programs\Python\Python314\Lib\pathlib\__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'exports\\xauusd_pending\\XAUUSD_4h.csv'
+____ test_xauusd_visible_plot_recursive_checkpoint_equivalence[xauusd_15m] ____
+tests\test_xauusd_golden.py:208: in test_xauusd_visible_plot_recursive_checkpoint_equivalence
+    rows = load_visible_plot_export(path, declared_symbol=XAUUSD, timeframe_seconds=timeframe_seconds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_xauusd_golden.py:78: in load_visible_plot_export
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\Programs\Python\Python314\Lib\pathlib\__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'exports\\xauusd_pending\\XAUUSD_15m.csv'
+____ test_xauusd_visible_plot_recursive_checkpoint_equivalence[xauusd_4h] _____
+tests\test_xauusd_golden.py:208: in test_xauusd_visible_plot_recursive_checkpoint_equivalence
+    rows = load_visible_plot_export(path, declared_symbol=XAUUSD, timeframe_seconds=timeframe_seconds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_xauusd_golden.py:78: in load_visible_plot_export
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\Programs\Python\Python314\Lib\pathlib\__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'exports\\xauusd_pending\\XAUUSD_4h.csv'
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_tradingview_golden.py:74: external TradingView golden CSV exports are not available
+SKIPPED [1] tests\test_tradingview_golden.py:125: external TradingView 15m golden CSV export is not available
+SKIPPED [1] tests\test_tradingview_golden.py:141: external TradingView 15m golden CSV export is not available
+SKIPPED [1] tests\test_tradingview_golden.py:159: external TradingView 15m golden CSV export is not available
+SKIPPED [1] tests\test_tradingview_golden.py:171: external TradingView 15m golden CSV export is not available
+SKIPPED [1] tests\test_tradingview_golden.py:182: external TradingView 15m golden CSV export is not available
+SKIPPED [1] tests\test_tradingview_golden.py:192: external TradingView 15m golden CSV export is not available
+SKIPPED [1] tests\test_tradingview_golden.py:203: external TradingView 15m golden CSV export is not available
+SKIPPED [1] tests\test_tradingview_golden.py:214: external TradingView golden CSV exports are not available
+SKIPPED [1] tests\test_tradingview_golden.py:226: external TradingView golden CSV exports are not available
+SKIPPED [1] tests\test_tradingview_golden.py:235: external TradingView golden CSV exports are not available
+FAILED tests/test_forward_capture_integrity.py::test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate
+FAILED tests/test_forward_capture_integrity.py::test_rejected_second_service_does_not_mutate_evidence
+FAILED tests/test_persistence.py::test_schema_and_checkpoint_version_mismatches_are_never_absence
+FAILED tests/test_xauusd_golden.py::test_xauusd_visible_plot_export_parity[xauusd_15m]
+FAILED tests/test_xauusd_golden.py::test_xauusd_visible_plot_export_parity[xauusd_4h]
+FAILED tests/test_xauusd_golden.py::test_xauusd_visible_plot_recursive_checkpoint_equivalence[xauusd_15m]
+FAILED tests/test_xauusd_golden.py::test_xauusd_visible_plot_recursive_checkpoint_equivalence[xauusd_4h]
+7 failed, 239 passed, 11 skipped in 361.34s (0:06:01)

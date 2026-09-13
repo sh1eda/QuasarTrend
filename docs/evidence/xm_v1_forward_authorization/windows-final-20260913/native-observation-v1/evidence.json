@@ -1,0 +1,581 @@
+{
+  "after": {
+    "audit_allowed": true,
+    "capture_allowed": false,
+    "environment_pseudonym": "c4fd7b2b3290bd49614a65785ea0c570b696631848bce9de3b9ebdbbfd02752b",
+    "execution_allowed": false,
+    "snapshot": {
+      "account": {
+        "company": "XM Global Limited",
+        "currency": "USD",
+        "currency_digits": 2,
+        "margin_mode": 2,
+        "server": "XMGlobal-MT5 9",
+        "trade_allowed": true,
+        "trade_mode": 0
+      },
+      "checks": {
+        "account_identity_proven": true,
+        "broker_identity_proven": true,
+        "demo_proven": true,
+        "execution_permission_blocker": null,
+        "execution_permissions": {
+          "account_trade_allowed": true,
+          "account_trade_expert": true,
+          "python_trading_api_enabled": true,
+          "terminal_trade_allowed": true
+        },
+        "execution_permissions_proven": true,
+        "order_submission_authorized": false,
+        "server_authorized": true,
+        "symbol_identity_proven": true,
+        "symbol_spec": {
+          "bank": true,
+          "currency_base": true,
+          "currency_margin": true,
+          "currency_profit": true,
+          "description": true,
+          "digits": true,
+          "point": true,
+          "swap_mode_points": true,
+          "trade_contract_size": true,
+          "trade_tick_size": true,
+          "trade_tick_value": true,
+          "triple_swap_wednesday": true,
+          "volume_max": true,
+          "volume_min": true,
+          "volume_step": true
+        },
+        "symbol_tradeable": true,
+        "symbol_visible": true
+      },
+      "mt5_version": [
+        500,
+        6182,
+        "5 Sep 2026"
+      ],
+      "policy": {
+        "authorized_demo_servers": [
+          "XMGlobal-MT5 18",
+          "XMGlobal-MT5 9"
+        ],
+        "company": "XM Global Limited",
+        "demo_execution_volume_policy": "SYMBOL_VOLUME_MIN",
+        "swap_mode_points_raw": 1,
+        "symbol": "GOLD",
+        "version": "xm-demo-broker-policy/v2"
+      },
+      "schema_version": "xm-mt5-capability-audit/v2",
+      "symbol": {
+        "currency_base": "USD",
+        "currency_margin": "USD",
+        "currency_profit": "USD",
+        "digits": 2,
+        "filling_mode": 2,
+        "name": "GOLD",
+        "order_mode": 127,
+        "point": 0.01,
+        "swap_long": -96.61,
+        "swap_mode": 1,
+        "swap_rollover3days": 3,
+        "swap_short": 13.11,
+        "trade_contract_size": 100.0,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_stops_level": 0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 1.0,
+        "trade_tick_value_loss": 1.0,
+        "trade_tick_value_profit": 1.0,
+        "visible": true,
+        "volume_max": 50.0,
+        "volume_min": 0.01,
+        "volume_step": 0.01
+      },
+      "terminal": {
+        "build": 6182,
+        "community_account": false,
+        "connected": true,
+        "trade_allowed": true,
+        "tradeapi_disabled": false
+      },
+      "terminal_connected": true
+    },
+    "target_server9_demo_proven": true,
+    "terminal_path_matches": true
+  },
+  "as_of_utc": "2026-09-10T03:52:34.061742+00:00",
+  "before": {
+    "audit_allowed": true,
+    "capture_allowed": false,
+    "environment_pseudonym": "c4fd7b2b3290bd49614a65785ea0c570b696631848bce9de3b9ebdbbfd02752b",
+    "execution_allowed": false,
+    "snapshot": {
+      "account": {
+        "company": "XM Global Limited",
+        "currency": "USD",
+        "currency_digits": 2,
+        "margin_mode": 2,
+        "server": "XMGlobal-MT5 9",
+        "trade_allowed": true,
+        "trade_mode": 0
+      },
+      "checks": {
+        "account_identity_proven": true,
+        "broker_identity_proven": true,
+        "demo_proven": true,
+        "execution_permission_blocker": null,
+        "execution_permissions": {
+          "account_trade_allowed": true,
+          "account_trade_expert": true,
+          "python_trading_api_enabled": true,
+          "terminal_trade_allowed": true
+        },
+        "execution_permissions_proven": true,
+        "order_submission_authorized": false,
+        "server_authorized": true,
+        "symbol_identity_proven": true,
+        "symbol_spec": {
+          "bank": true,
+          "currency_base": true,
+          "currency_margin": true,
+          "currency_profit": true,
+          "description": true,
+          "digits": true,
+          "point": true,
+          "swap_mode_points": true,
+          "trade_contract_size": true,
+          "trade_tick_size": true,
+          "trade_tick_value": true,
+          "triple_swap_wednesday": true,
+          "volume_max": true,
+          "volume_min": true,
+          "volume_step": true
+        },
+        "symbol_tradeable": true,
+        "symbol_visible": true
+      },
+      "mt5_version": [
+        500,
+        6182,
+        "5 Sep 2026"
+      ],
+      "policy": {
+        "authorized_demo_servers": [
+          "XMGlobal-MT5 18",
+          "XMGlobal-MT5 9"
+        ],
+        "company": "XM Global Limited",
+        "demo_execution_volume_policy": "SYMBOL_VOLUME_MIN",
+        "swap_mode_points_raw": 1,
+        "symbol": "GOLD",
+        "version": "xm-demo-broker-policy/v2"
+      },
+      "schema_version": "xm-mt5-capability-audit/v2",
+      "symbol": {
+        "currency_base": "USD",
+        "currency_margin": "USD",
+        "currency_profit": "USD",
+        "digits": 2,
+        "filling_mode": 2,
+        "name": "GOLD",
+        "order_mode": 127,
+        "point": 0.01,
+        "swap_long": -96.61,
+        "swap_mode": 1,
+        "swap_rollover3days": 3,
+        "swap_short": 13.11,
+        "trade_contract_size": 100.0,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_stops_level": 0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 1.0,
+        "trade_tick_value_loss": 1.0,
+        "trade_tick_value_profit": 1.0,
+        "visible": true,
+        "volume_max": 50.0,
+        "volume_min": 0.01,
+        "volume_step": 0.01
+      },
+      "terminal": {
+        "build": 6182,
+        "community_account": false,
+        "connected": true,
+        "trade_allowed": true,
+        "tradeapi_disabled": false
+      },
+      "terminal_connected": true
+    },
+    "target_server9_demo_proven": true,
+    "terminal_path_matches": true
+  },
+  "capture": false,
+  "closure_certificate": false,
+  "completeness": "UNRESOLVED",
+  "execution": false,
+  "finished_utc": "2026-09-10T03:52:36.330175+00:00",
+  "identity_stable": true,
+  "initialize_returned": true,
+  "initialize_status_code": 1,
+  "ipc_shutdown": "RETURNED",
+  "observations": [
+    {
+      "acquisition": "OBSERVED_API_SUCCESS",
+      "count": 45,
+      "dtype": [
+        [
+          "time",
+          "<i8"
+        ],
+        [
+          "open",
+          "<f8"
+        ],
+        [
+          "high",
+          "<f8"
+        ],
+        [
+          "low",
+          "<f8"
+        ],
+        [
+          "close",
+          "<f8"
+        ],
+        [
+          "tick_volume",
+          "<u8"
+        ],
+        [
+          "spread",
+          "<i4"
+        ],
+        [
+          "real_volume",
+          "<u8"
+        ]
+      ],
+      "elapsed_seconds": 0.6995350199285895,
+      "end_utc": "2026-09-10T03:45:00+00:00",
+      "finished_utc": "2026-09-10T03:52:34.765843+00:00",
+      "kind": "rates",
+      "label": "recent",
+      "normalization": "ordered rows; field names sorted; JSON compact UTF-8; finite numeric values",
+      "normalized_payload_sha256": "40f0fa359986df5cf884eb6bb614662f02f53fdf10a31307ce9e3b3d10bc192c",
+      "returned": "RETURNED",
+      "start_utc": "2026-09-09T15:45:00+00:00",
+      "started_utc": "2026-09-10T03:52:34.065762+00:00",
+      "status_code": 1,
+      "timeframe": "M15",
+      "timestamp_bounds": {
+        "time": {
+          "maximum": 1789011900,
+          "minimum": 1788968700
+        }
+      }
+    },
+    {
+      "acquisition": "OBSERVED_API_SUCCESS",
+      "count": 3,
+      "dtype": [
+        [
+          "time",
+          "<i8"
+        ],
+        [
+          "open",
+          "<f8"
+        ],
+        [
+          "high",
+          "<f8"
+        ],
+        [
+          "low",
+          "<f8"
+        ],
+        [
+          "close",
+          "<f8"
+        ],
+        [
+          "tick_volume",
+          "<u8"
+        ],
+        [
+          "spread",
+          "<i4"
+        ],
+        [
+          "real_volume",
+          "<u8"
+        ]
+      ],
+      "elapsed_seconds": 0.15128432004712522,
+      "end_utc": "2026-09-10T03:45:00+00:00",
+      "finished_utc": "2026-09-10T03:52:34.919747+00:00",
+      "kind": "rates",
+      "label": "recent",
+      "normalization": "ordered rows; field names sorted; JSON compact UTF-8; finite numeric values",
+      "normalized_payload_sha256": "2402a1f80b9e30f745c38be31da4ec2090a9d94bdba8e74b29a3eb4d67ecb36d",
+      "returned": "RETURNED",
+      "start_utc": "2026-09-09T15:45:00+00:00",
+      "started_utc": "2026-09-10T03:52:34.767894+00:00",
+      "status_code": 1,
+      "timeframe": "H4",
+      "timestamp_bounds": {
+        "time": {
+          "maximum": 1788998400,
+          "minimum": 1788969600
+        }
+      }
+    },
+    {
+      "acquisition": "OBSERVED_API_SUCCESS",
+      "count": 0,
+      "dtype": [
+        [
+          "time",
+          "<i8"
+        ],
+        [
+          "open",
+          "<f8"
+        ],
+        [
+          "high",
+          "<f8"
+        ],
+        [
+          "low",
+          "<f8"
+        ],
+        [
+          "close",
+          "<f8"
+        ],
+        [
+          "tick_volume",
+          "<u8"
+        ],
+        [
+          "spread",
+          "<i4"
+        ],
+        [
+          "real_volume",
+          "<u8"
+        ]
+      ],
+      "elapsed_seconds": 0.000606740009970963,
+      "end_utc": "2026-09-07T00:00:00+00:00",
+      "finished_utc": "2026-09-10T03:52:34.922678+00:00",
+      "kind": "rates",
+      "label": "weekend_candidate",
+      "normalization": "ordered rows; field names sorted; JSON compact UTF-8; finite numeric values",
+      "normalized_payload_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "returned": "EMPTY",
+      "start_utc": "2026-09-05T00:00:00+00:00",
+      "started_utc": "2026-09-10T03:52:34.921536+00:00",
+      "status_code": 1,
+      "timeframe": "M15",
+      "timestamp_bounds": {
+        "time": {
+          "maximum": null,
+          "minimum": null
+        }
+      }
+    },
+    {
+      "acquisition": "OBSERVED_API_SUCCESS",
+      "count": 1,
+      "dtype": [
+        [
+          "time",
+          "<i8"
+        ],
+        [
+          "open",
+          "<f8"
+        ],
+        [
+          "high",
+          "<f8"
+        ],
+        [
+          "low",
+          "<f8"
+        ],
+        [
+          "close",
+          "<f8"
+        ],
+        [
+          "tick_volume",
+          "<u8"
+        ],
+        [
+          "spread",
+          "<i4"
+        ],
+        [
+          "real_volume",
+          "<u8"
+        ]
+      ],
+      "elapsed_seconds": 0.0006322900298982859,
+      "end_utc": "2026-09-07T00:00:00+00:00",
+      "finished_utc": "2026-09-10T03:52:34.925534+00:00",
+      "kind": "rates",
+      "label": "weekend_candidate",
+      "normalization": "ordered rows; field names sorted; JSON compact UTF-8; finite numeric values",
+      "normalized_payload_sha256": "337cb170d8d92a22f5f3beed352b3bc1794e59e1fc577cf306033ee4fdc666e5",
+      "returned": "RETURNED",
+      "start_utc": "2026-09-05T00:00:00+00:00",
+      "started_utc": "2026-09-10T03:52:34.924360+00:00",
+      "status_code": 1,
+      "timeframe": "H4",
+      "timestamp_bounds": {
+        "time": {
+          "maximum": 1788739200,
+          "minimum": 1788739200
+        }
+      }
+    },
+    {
+      "acquisition": "OBSERVED_API_SUCCESS",
+      "count": 3467,
+      "dtype": [
+        [
+          "time",
+          "<i8"
+        ],
+        [
+          "bid",
+          "<f8"
+        ],
+        [
+          "ask",
+          "<f8"
+        ],
+        [
+          "last",
+          "<f8"
+        ],
+        [
+          "volume",
+          "<u8"
+        ],
+        [
+          "time_msc",
+          "<i8"
+        ],
+        [
+          "flags",
+          "<u4"
+        ],
+        [
+          "volume_real",
+          "<f8"
+        ]
+      ],
+      "elapsed_seconds": 1.1259653200395405,
+      "end_utc": "2026-09-10T03:45:00+00:00",
+      "finished_utc": "2026-09-10T03:52:36.053730+00:00",
+      "kind": "ticks",
+      "label": "recent",
+      "normalization": "ordered rows; field names sorted; JSON compact UTF-8; finite numeric values",
+      "normalized_payload_sha256": "ecb097a00ff1ad82ed1cc627625161dab19f061cee77258293488838df3f921d",
+      "returned": "RETURNED",
+      "start_utc": "2026-09-10T03:30:00+00:00",
+      "started_utc": "2026-09-10T03:52:34.927195+00:00",
+      "status_code": 1,
+      "timestamp_bounds": {
+        "time": {
+          "maximum": 1789011899,
+          "minimum": 1789011002
+        },
+        "time_msc": {
+          "maximum": 1789011899623,
+          "minimum": 1789011002241
+        }
+      }
+    },
+    {
+      "acquisition": "OBSERVED_API_SUCCESS",
+      "count": 0,
+      "dtype": [
+        [
+          "time",
+          "<i8"
+        ],
+        [
+          "bid",
+          "<f8"
+        ],
+        [
+          "ask",
+          "<f8"
+        ],
+        [
+          "last",
+          "<f8"
+        ],
+        [
+          "volume",
+          "<u8"
+        ],
+        [
+          "time_msc",
+          "<i8"
+        ],
+        [
+          "flags",
+          "<u4"
+        ],
+        [
+          "volume_real",
+          "<f8"
+        ]
+      ],
+      "elapsed_seconds": 0.26904274988919497,
+      "end_utc": "2026-09-05T12:15:00+00:00",
+      "finished_utc": "2026-09-10T03:52:36.326536+00:00",
+      "kind": "ticks",
+      "label": "weekend_candidate",
+      "normalization": "ordered rows; field names sorted; JSON compact UTF-8; finite numeric values",
+      "normalized_payload_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "returned": "EMPTY",
+      "start_utc": "2026-09-05T12:00:00+00:00",
+      "started_utc": "2026-09-10T03:52:36.056857+00:00",
+      "status_code": 1,
+      "timestamp_bounds": {
+        "time": {
+          "maximum": null,
+          "minimum": null
+        },
+        "time_msc": {
+          "maximum": null,
+          "minimum": null
+        }
+      }
+    }
+  ],
+  "python_api_surface": {
+    "account_info": true,
+    "copy_rates_range": true,
+    "copy_ticks_range": true,
+    "series_info_integer": false,
+    "symbol_info": true,
+    "symbol_info_session_quote": false,
+    "symbol_info_session_trade": false,
+    "symbol_info_tick": true,
+    "symbol_is_synchronized": false,
+    "terminal_info": true
+  },
+  "schema": "xm-native-history-observation/v1",
+  "started_utc": "2026-09-10T03:52:34.061753+00:00",
+  "status": "SIX_REQUESTS_OBSERVED"
+}

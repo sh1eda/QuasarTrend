@@ -1,0 +1,33 @@
+....................................FF.................................. [ 27%]
+........................................................................ [ 54%]
+........................................................................ [ 82%]
+...............................................                          [100%]
+================================== FAILURES ===================================
+_ test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate[empty-lock] _
+<WINDOWS_USER_HOME>\AppData\Local\Temp\2\quasartrend-xm-061231aa57ae476184d630a44229bdf4\repo\src\quasartrend\forward\durable.py:71: in __init__
+    msvcrt.locking(self.stream.fileno(), msvcrt.LK_NBLCK, 1)
+E   PermissionError: [Errno 13] Permission denied
+
+The above exception was the direct cause of the following exception:
+tests\test_forward_capture_integrity.py:393: in test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate
+    recovered = EvidenceLock(root)
+                ^^^^^^^^^^^^^^^^^^
+<WINDOWS_USER_HOME>\AppData\Local\Temp\2\quasartrend-xm-061231aa57ae476184d630a44229bdf4\repo\src\quasartrend\forward\durable.py:77: in __init__
+    raise PermissionError("forward evidence root already has a writer") from error
+E   PermissionError: forward evidence root already has a writer
+_ test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate[nonempty-lock] _
+<WINDOWS_USER_HOME>\AppData\Local\Temp\2\quasartrend-xm-061231aa57ae476184d630a44229bdf4\repo\src\quasartrend\forward\durable.py:71: in __init__
+    msvcrt.locking(self.stream.fileno(), msvcrt.LK_NBLCK, 1)
+E   PermissionError: [Errno 13] Permission denied
+
+The above exception was the direct cause of the following exception:
+tests\test_forward_capture_integrity.py:393: in test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate
+    recovered = EvidenceLock(root)
+                ^^^^^^^^^^^^^^^^^^
+<WINDOWS_USER_HOME>\AppData\Local\Temp\2\quasartrend-xm-061231aa57ae476184d630a44229bdf4\repo\src\quasartrend\forward\durable.py:77: in __init__
+    raise PermissionError("forward evidence root already has a writer") from error
+E   PermissionError: forward evidence root already has a writer
+=========================== short test summary info ===========================
+FAILED tests/test_forward_capture_integrity.py::test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate[empty-lock]
+FAILED tests/test_forward_capture_integrity.py::test_root_single_writer_release_crash_and_rejected_writer_does_not_mutate[nonempty-lock]
+2 failed, 261 passed in 390.12s (0:06:30)

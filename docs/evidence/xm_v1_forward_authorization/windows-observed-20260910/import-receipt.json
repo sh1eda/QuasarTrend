@@ -1,0 +1,83 @@
+{
+  "archive_sha256_verified_by_lead": "6df4185215e3abcad7ca19a3cfab6b379e55345a6c56d3ca34fd69a37f84398c",
+  "authorization": "BLOCKED",
+  "final_windows_rerun": "PENDING",
+  "imported_utc": "2026-09-10T21:19:12.792930+00:00",
+  "manifest_semantics": "manifest.json preserved exactly and binds returned exported bytes; this import receipt separately binds repository copies after additional path/hostname redactions. Original Windows artifacts are identified by original_sha256 in the preserved export manifest.",
+  "member_count": 11,
+  "members": {
+    "evidence-with-pytest/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "5b15aa73c828198b2166aa7dd90d8f3b9d3240764fcd98aedfb42169c9e6d498",
+      "returned_export_sha256": "5b15aa73c828198b2166aa7dd90d8f3b9d3240764fcd98aedfb42169c9e6d498"
+    },
+    "evidence-with-pytest/junit.xml": {
+      "additional_redactions": {
+        "junit_hostname": 1,
+        "pytest_username": 2
+      },
+      "repository_copy_sha256": "3558911f849d23df5d5060353748451765d635a7e535adf8adb1af04e65f7546",
+      "returned_export_sha256": "a5f97622662efa2053f042298b46c185e0092ce51ab8f0eb6c76b345f2697dac"
+    },
+    "evidence-with-pytest/pytest.txt": {
+      "additional_redactions": {
+        "pytest_username": 1
+      },
+      "repository_copy_sha256": "53de736e92bdaa6e9188ce1a1fecdcd733723bcb10e30b07d764603abffc026f",
+      "returned_export_sha256": "8333e5f329b52e26dc6fa27acc4b38e11ba1d7e0d51da31d1033127dbf6dad03"
+    },
+    "evidence/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "c468e28deff5eb7374e6bd98afde1dade42c06eba07b0cfe2735c3a6599a8f43",
+      "returned_export_sha256": "c468e28deff5eb7374e6bd98afde1dade42c06eba07b0cfe2735c3a6599a8f43"
+    },
+    "evidence/pytest.txt": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "a189d45da8974fc19ffbde196c1b931a51d45878f82bec3a93beb56d1a6fad78",
+      "returned_export_sha256": "a189d45da8974fc19ffbde196c1b931a51d45878f82bec3a93beb56d1a6fad78"
+    },
+    "export-metadata.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "b4c290d4d279488151c5e2dd5ed0302c900efb3ca05b5b7cc57d8f57c3e1e14f",
+      "returned_export_sha256": "b4c290d4d279488151c5e2dd5ed0302c900efb3ca05b5b7cc57d8f57c3e1e14f"
+    },
+    "final263run/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "b0291dd069d2d6ea5bb361edff00d2a34ca8556f97e86d271342514f82ffb475",
+      "returned_export_sha256": "b0291dd069d2d6ea5bb361edff00d2a34ca8556f97e86d271342514f82ffb475"
+    },
+    "final263run/junit.xml": {
+      "additional_redactions": {
+        "junit_hostname": 1,
+        "windows_user_home": 4
+      },
+      "repository_copy_sha256": "59262402a40971e392bc907c18602d7b2c4c2caec11b9701b876fc044cdfe652",
+      "returned_export_sha256": "7f3edb1e5feaecd28a46b03c7eb5713e05b824974d74c61d787daf8cc1ca8cd2"
+    },
+    "final263run/pytest.txt": {
+      "additional_redactions": {
+        "windows_user_home": 4
+      },
+      "repository_copy_sha256": "2a39010f94d08c0320519496d932c770e5764f814529e7d937a78bee3862b3e6",
+      "returned_export_sha256": "dbd4973a6481eab152b9f7b273ff5660cc801ba522128921c03c535e664fc9f1"
+    },
+    "lock-owner-observation-v1/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "0cdde0e5e60d83b47553cc671fdda6d7ac6476b3c3145751145b0a7027ee567e",
+      "returned_export_sha256": "0cdde0e5e60d83b47553cc671fdda6d7ac6476b3c3145751145b0a7027ee567e"
+    },
+    "manifest.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "369c174b0a42009064eeecabbde8f710abcf4bedc92f74f25855ad6c584482de",
+      "returned_export_sha256": "369c174b0a42009064eeecabbde8f710abcf4bedc92f74f25855ad6c584482de"
+    },
+    "native-observation-v1/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "577af8eb24b418bfb7c917dff80104ef16d0fca9eaecbfcddd204f21e7e17066",
+      "returned_export_sha256": "577af8eb24b418bfb7c917dff80104ef16d0fca9eaecbfcddd204f21e7e17066"
+    }
+  },
+  "privacy_review": "No raw credential/login/account_id JSON fields or workstation user-home paths in repository copies. Account proof uses pseudonyms. Process IDs intentionally retained as causal evidence.",
+  "returned_manifest_verified": true,
+  "schema": "xm-windows-evidence-import/v1"
+}

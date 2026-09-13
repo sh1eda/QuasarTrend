@@ -1,0 +1,21 @@
+{
+  "files": {
+    "run-xm-lock-owner-probe-bounded.py": {
+      "bytes": 243,
+      "sha256": "a63e3f3600654e5522c00f18a5f56fc7d1cc741b8ee55a8cfdc9b835ca4b396b"
+    },
+    "xm-export-bounded-evidence.py": {
+      "bytes": 7830,
+      "sha256": "02d426b26f7b36bf9712e1f545552cc566c79b1f774155150dcff09e90574eaf"
+    },
+    "xm-lock-owner-probe-v2.py": {
+      "bytes": 11104,
+      "sha256": "288697d88b2262115b0a984568233cad06ca3ae45d7ac167e4b51134fbd26cc7"
+    },
+    "xm-run-diagnostic22.py": {
+      "bytes": 4994,
+      "sha256": "8ce9d9c8ce739b5a8c3b3817cb14dd8926196cfe2d8bd32b5cbfeea1ec161d8a"
+    }
+  },
+  "scope": "Reviewed bounded diagnostic/export source snapshots, not production or capture authorization. Exporter snapshot includes final owner-wait rerun allowlist; earlier exports retain their own provenance."
+}

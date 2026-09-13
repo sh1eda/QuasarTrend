@@ -1,0 +1,108 @@
+{
+  "capture": false,
+  "cases": [
+    {
+      "attempts": [
+        {
+          "elapsed_seconds": 0.0002945399610325694,
+          "outcome": "DENIED",
+          "phase": "while_owner_holds",
+          "utc": "2026-09-10T04:00:14.851865+00:00"
+        },
+        {
+          "elapsed_seconds": 0.00022185000125318766,
+          "outcome": "DENIED",
+          "phase": "immediate_after_launcher_wait",
+          "utc": "2026-09-10T04:00:14.864159+00:00"
+        },
+        {
+          "elapsed_seconds": 0.00019719009287655354,
+          "outcome": "ACQUIRED_AND_RELEASED",
+          "phase": "after_bounded_owner_wait",
+          "utc": "2026-09-10T04:00:14.868906+00:00"
+        }
+      ],
+      "child_durable_path_matches": true,
+      "child_durable_sha256": "d289004067cf107fd16ad1f3a0ca96b54dc589715bbf35a6a67d609de05ff784",
+      "child_python_executable_sha256": "9b7bffc26240463c965a2a2a5fada1d8e741c21c25cd2e977728c339b82d9977",
+      "cleanup_owner_wait0": 0,
+      "evidence_bytes_unchanged": true,
+      "finished_utc": "2026-09-10T04:00:14.875907+00:00",
+      "kill_launcher_utc": "2026-09-10T04:00:14.862988+00:00",
+      "label": "empty",
+      "launcher_returncode": 1,
+      "launcher_wait_returned_utc": "2026-09-10T04:00:14.864128+00:00",
+      "lock_bytes_unchanged_after_cleanup": true,
+      "lock_identity_unchanged": true,
+      "lock_initial_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "owner_after_launcher_wait0": 258,
+      "owner_before_kill_wait0": 258,
+      "owner_differs_from_popen": true,
+      "owner_final_wait0": 0,
+      "owner_pid": 3028,
+      "owner_wait10000": 0,
+      "owner_wait_elapsed_seconds": 0.003944420022889972,
+      "popen_pid": 1844,
+      "started_utc": "2026-09-10T04:00:14.568616+00:00",
+      "status": "OBSERVED"
+    },
+    {
+      "attempts": [
+        {
+          "elapsed_seconds": 0.0002274499274790287,
+          "outcome": "DENIED",
+          "phase": "while_owner_holds",
+          "utc": "2026-09-10T04:00:15.157486+00:00"
+        },
+        {
+          "elapsed_seconds": 0.0002063100691884756,
+          "outcome": "DENIED",
+          "phase": "immediate_after_launcher_wait",
+          "utc": "2026-09-10T04:00:15.159873+00:00"
+        },
+        {
+          "elapsed_seconds": 0.00021176005247980356,
+          "outcome": "ACQUIRED_AND_RELEASED",
+          "phase": "after_bounded_owner_wait",
+          "utc": "2026-09-10T04:00:15.164081+00:00"
+        }
+      ],
+      "child_durable_path_matches": true,
+      "child_durable_sha256": "d289004067cf107fd16ad1f3a0ca96b54dc589715bbf35a6a67d609de05ff784",
+      "child_python_executable_sha256": "9b7bffc26240463c965a2a2a5fada1d8e741c21c25cd2e977728c339b82d9977",
+      "cleanup_owner_wait0": 0,
+      "evidence_bytes_unchanged": true,
+      "finished_utc": "2026-09-10T04:00:15.165642+00:00",
+      "kill_launcher_utc": "2026-09-10T04:00:15.158336+00:00",
+      "label": "nonempty",
+      "launcher_returncode": 1,
+      "launcher_wait_returned_utc": "2026-09-10T04:00:15.159843+00:00",
+      "lock_bytes_unchanged_after_cleanup": true,
+      "lock_identity_unchanged": true,
+      "lock_initial_sha256": "d15d176f9597b5d71ef05bb0da661e382f50d2972e7b9608692ce43c3fee9c09",
+      "owner_after_launcher_wait0": 258,
+      "owner_before_kill_wait0": 258,
+      "owner_differs_from_popen": true,
+      "owner_final_wait0": 0,
+      "owner_pid": 4444,
+      "owner_wait10000": 0,
+      "owner_wait_elapsed_seconds": 0.003480579936876893,
+      "popen_pid": 744,
+      "started_utc": "2026-09-10T04:00:14.877358+00:00",
+      "status": "OBSERVED"
+    }
+  ],
+  "child_source_sha256": "5cf0d574759bd7db2b88888649afe9d258f0decf07b4fdd4c31301a92cd44608",
+  "durable_source_sha256": "d289004067cf107fd16ad1f3a0ca96b54dc589715bbf35a6a67d609de05ff784",
+  "durable_source_unchanged": true,
+  "elapsed_seconds": 0.8130121600115672,
+  "execution": false,
+  "finished_utc": "2026-09-10T04:00:15.166378+00:00",
+  "probe_sha256": "288697d88b2262115b0a984568233cad06ca3ae45d7ac167e4b51134fbd26cc7",
+  "python_executable_path_sha256": "99ef1e5ea60e01ae64285406050ebaf3fb3020ab4211f783b2d04e72b51e8751",
+  "python_executable_sha256": "9b7bffc26240463c965a2a2a5fada1d8e741c21c25cd2e977728c339b82d9977",
+  "python_version": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+  "schema": "xm-windows-lock-owner-probe/v1",
+  "started_utc": "2026-09-10T04:00:14.353394+00:00",
+  "status": "TWO_CASES_OBSERVED_NO_CAUSAL_VERDICT"
+}

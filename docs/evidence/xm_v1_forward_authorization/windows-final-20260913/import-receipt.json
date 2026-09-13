@@ -1,0 +1,122 @@
+{
+  "archive_sha256_verified_by_lead": "4acefece9af724cb9f8705a834cb2a0b886e39acd6a9c7b0d8ddf7ddf11d05cc",
+  "authorization": "BLOCKED",
+  "imported_utc": "2026-09-12T23:32:49.592156+00:00",
+  "manifest_semantics": "Original manifest binds Windows-original and exported bytes; this receipt binds repository copies after additional hostname and pytest-username redaction.",
+  "member_count": 17,
+  "members": {
+    "diagnostic22.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "922ff1c03bdf7c6f1306a0dde3d7f1b3ec76e1266eece260d48b9aeeb877d345",
+      "returned_export_sha256": "922ff1c03bdf7c6f1306a0dde3d7f1b3ec76e1266eece260d48b9aeeb877d345",
+      "windows_original_sha256": "26b11eb1301d72602743184705268fff4971ee276830664b52d8f8ae1bb0ba94"
+    },
+    "diagnostic22.log": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "6956c8c5898a7fd98825b89f18809b9f5c8bee9b9244d0562171492ce661c42f",
+      "returned_export_sha256": "6956c8c5898a7fd98825b89f18809b9f5c8bee9b9244d0562171492ce661c42f",
+      "windows_original_sha256": "6956c8c5898a7fd98825b89f18809b9f5c8bee9b9244d0562171492ce661c42f"
+    },
+    "diagnostic22.xml": {
+      "additional_redactions": {
+        "junit_hostname": 1
+      },
+      "repository_copy_sha256": "851f402fc8b20242bc0d48fde40e6dbcd53f9af68fdcde46325ba2e5c6fefabc",
+      "returned_export_sha256": "e99b6e8a86d13e432b04b7ace4a60b763b1328d11e1890d76f139e8188b09b12",
+      "windows_original_sha256": "e99b6e8a86d13e432b04b7ace4a60b763b1328d11e1890d76f139e8188b09b12"
+    },
+    "evidence-with-pytest/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "5b15aa73c828198b2166aa7dd90d8f3b9d3240764fcd98aedfb42169c9e6d498",
+      "returned_export_sha256": "5b15aa73c828198b2166aa7dd90d8f3b9d3240764fcd98aedfb42169c9e6d498",
+      "windows_original_sha256": "a0bf0677a97ff523162f8621e4a98f970eb467f935de36729091d5d59f2ca308"
+    },
+    "evidence-with-pytest/junit.xml": {
+      "additional_redactions": {
+        "junit_hostname": 1,
+        "pytest_username": 2
+      },
+      "repository_copy_sha256": "ab4d79238d149ead0e7dd5785c53916d9f45c8e37135242b5f734bf5d1b7e241",
+      "returned_export_sha256": "a5f97622662efa2053f042298b46c185e0092ce51ab8f0eb6c76b345f2697dac",
+      "windows_original_sha256": "8eb3de919c6a5307ae5c20b28717c0adda0af42832aa676ef1bd171e227502d7"
+    },
+    "evidence-with-pytest/pytest.txt": {
+      "additional_redactions": {
+        "pytest_username": 1
+      },
+      "repository_copy_sha256": "fccc4b16c102a1caf001a4965f303167ecafe45d31cb8179680acbfa339ba659",
+      "returned_export_sha256": "8333e5f329b52e26dc6fa27acc4b38e11ba1d7e0d51da31d1033127dbf6dad03",
+      "windows_original_sha256": "31e43ce702a391f023ef5c472cfa5042b8c7e620846969f9c13e05b87c32e017"
+    },
+    "evidence/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "c468e28deff5eb7374e6bd98afde1dade42c06eba07b0cfe2735c3a6599a8f43",
+      "returned_export_sha256": "c468e28deff5eb7374e6bd98afde1dade42c06eba07b0cfe2735c3a6599a8f43",
+      "windows_original_sha256": "bbb2a2c20b51d14adc6a5e164c1595fb0e893cea0d764832c3e1cae3ac7caacc"
+    },
+    "evidence/pytest.txt": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "a189d45da8974fc19ffbde196c1b931a51d45878f82bec3a93beb56d1a6fad78",
+      "returned_export_sha256": "a189d45da8974fc19ffbde196c1b931a51d45878f82bec3a93beb56d1a6fad78",
+      "windows_original_sha256": "a189d45da8974fc19ffbde196c1b931a51d45878f82bec3a93beb56d1a6fad78"
+    },
+    "export-metadata.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "2ac0cfd1338ed3bb1f199e59cd99bf1cb73b3f6ff2fbd2f866e918b1e0d24959",
+      "returned_export_sha256": "2ac0cfd1338ed3bb1f199e59cd99bf1cb73b3f6ff2fbd2f866e918b1e0d24959",
+      "windows_original_sha256": null
+    },
+    "final263-ownerwait-v2/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "6f22a6901ae42c3224e901d2d042780a950e0817a34acc5814d9606c56f0d885",
+      "returned_export_sha256": "6f22a6901ae42c3224e901d2d042780a950e0817a34acc5814d9606c56f0d885",
+      "windows_original_sha256": "1b4de14dcaff2583eb470a8c51b84824e78d978b2cb9af5e453b9bca2f955689"
+    },
+    "final263-ownerwait-v2/junit.xml": {
+      "additional_redactions": {
+        "junit_hostname": 1
+      },
+      "repository_copy_sha256": "23d64a5a372dff0d9032b18da6de7abe53c9ec93a0bbd27819158ef51984570d",
+      "returned_export_sha256": "542262dcd5b4b7307fc3f2a76d2e761d5db368269dfe6dd59ce82b80d6670ba6",
+      "windows_original_sha256": "542262dcd5b4b7307fc3f2a76d2e761d5db368269dfe6dd59ce82b80d6670ba6"
+    },
+    "final263-ownerwait-v2/pytest.txt": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "b23189ea71d41e1c2699d9728e9d9a7c4ebcb9ac34da9400fbd72c7f43d57666",
+      "returned_export_sha256": "b23189ea71d41e1c2699d9728e9d9a7c4ebcb9ac34da9400fbd72c7f43d57666",
+      "windows_original_sha256": "b23189ea71d41e1c2699d9728e9d9a7c4ebcb9ac34da9400fbd72c7f43d57666"
+    },
+    "final263run/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "b0291dd069d2d6ea5bb361edff00d2a34ca8556f97e86d271342514f82ffb475",
+      "returned_export_sha256": "b0291dd069d2d6ea5bb361edff00d2a34ca8556f97e86d271342514f82ffb475",
+      "windows_original_sha256": "4c773c15bb819f55e8c2bae0e7bbb78b6567e02dce16dc99b6c1d5f2971b77fb"
+    },
+    "final263run/junit.xml": {
+      "additional_redactions": {
+        "junit_hostname": 1
+      },
+      "repository_copy_sha256": "f2dbb022dbf513958b35f18498a1cfbacba0a7fc762dc46edb5d2580f2658931",
+      "returned_export_sha256": "7f3edb1e5feaecd28a46b03c7eb5713e05b824974d74c61d787daf8cc1ca8cd2",
+      "windows_original_sha256": "7f3edb1e5feaecd28a46b03c7eb5713e05b824974d74c61d787daf8cc1ca8cd2"
+    },
+    "final263run/pytest.txt": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "dbd4973a6481eab152b9f7b273ff5660cc801ba522128921c03c535e664fc9f1",
+      "returned_export_sha256": "dbd4973a6481eab152b9f7b273ff5660cc801ba522128921c03c535e664fc9f1",
+      "windows_original_sha256": "dbd4973a6481eab152b9f7b273ff5660cc801ba522128921c03c535e664fc9f1"
+    },
+    "lock-owner-observation-v1/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "0cdde0e5e60d83b47553cc671fdda6d7ac6476b3c3145751145b0a7027ee567e",
+      "returned_export_sha256": "0cdde0e5e60d83b47553cc671fdda6d7ac6476b3c3145751145b0a7027ee567e",
+      "windows_original_sha256": "765db734742ddd0412b920bbc12b5015c6e537cb946085d86bfe00651041c5ae"
+    },
+    "native-observation-v1/evidence.json": {
+      "additional_redactions": {},
+      "repository_copy_sha256": "577af8eb24b418bfb7c917dff80104ef16d0fca9eaecbfcddd204f21e7e17066",
+      "returned_export_sha256": "577af8eb24b418bfb7c917dff80104ef16d0fca9eaecbfcddd204f21e7e17066",
+      "windows_original_sha256": "74cfe264eec0dea23c047e48b8e9399e96fe68ea8728ca77ce90c3d749a4bc74"
+    }
+  }
+}
