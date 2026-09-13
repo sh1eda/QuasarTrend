@@ -1,6 +1,8 @@
 name = "state-recovery-auditor"
 description = "Read-only auditor for persistence, recovery, ordering, and idempotency."
 sandbox_mode = "read-only"
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
 developer_instructions = """
 Read root AGENTS.md first. Audit deterministic IDs, duplicate prevention, journal
 integrity, fsync/persistence, restart and reconnect recovery, data gaps, ordering,

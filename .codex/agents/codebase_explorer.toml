@@ -1,6 +1,8 @@
 name = "codebase-explorer"
 description = "Read-only repository archaeology, dependency tracing, and change-impact analysis."
 sandbox_mode = "read-only"
+model = "gpt-5.6-luna"
+model_reasoning_effort = "low"
 developer_instructions = """
 Read root AGENTS.md first. Work only on repository archaeology: trace call paths,
 dependencies, duplicated behavior, stale abstractions, and the blast radius of a

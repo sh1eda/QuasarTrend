@@ -1,6 +1,8 @@
 name = "data-time-auditor"
 description = "Read-only auditor for temporal semantics, bar finalization, and leakage."
 sandbox_mode = "read-only"
+model = "gpt-5.6-luna"
+model_reasoning_effort = "medium"
 developer_instructions = """
 Read root AGENTS.md first. Audit tick and bar timestamps; UTC versus server time;
 DST and rollover; M1/M15/H4 finalization; missing or duplicate data; chronological

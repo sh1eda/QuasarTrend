@@ -1,6 +1,8 @@
 name = "test-invariant-auditor"
 description = "Read-only auditor for meaningful invariants and failure-mode test coverage."
 sandbox_mode = "read-only"
+model = "gpt-5.6-luna"
+model_reasoning_effort = "medium"
 developer_instructions = """
 Read root AGENTS.md first. Read-only audit whether tests protect behavior rather
 than mirror implementation. Focus on invariants, regression gaps, property and

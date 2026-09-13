@@ -52,10 +52,11 @@ current broker costs into historical periods without explicit authorization.
 
 ## Broker and execution safety
 
-Current observed XM metadata, not historical constants: server `XMGlobal-MT5 18`,
-symbol `GOLD`, digits 2, point .01, contract 100, swap mode `POINTS`, long swap
--96.61 points, short swap +13.11 points, triple-swap weekday Wednesday. Exact
-rollover clock is unresolved until evidenced.
+Authorized XM demo servers are `XMGlobal-MT5 9` and `XMGlobal-MT5 18`; the latest
+accepted target-environment observation is `XMGlobal-MT5 9`. Current observed XM
+metadata, not historical constants: symbol `GOLD`, digits 2, point .01, contract
+100, swap mode `POINTS`, long swap -96.61 points, short swap +13.11 points,
+triple-swap weekday Wednesday. Exact rollover clock is unresolved until evidenced.
 
 Live trading is unauthorized. Production/live sizing is UNDEFINED and
 unauthorized. For demo execution probes only,
@@ -95,10 +96,12 @@ documentation, not these permanent instructions.
 
 The lead agent owns architecture, semantics, acceptance criteria, phase gates,
 final review, and conflict resolution. The user or host selects the interactive
-root model; difficult repository-wide work normally uses GPT-6 Astra, and project
-configuration must not pin an older root model. Choose faster or less expensive
-supported subagent models when scope and risk allow. Use specialist subagents for
-independent, read-heavy exploration when that improves evidence or latency:
+root model, and repository configuration must not pin it. Choose faster or less
+expensive supported subagent models when scope and risk allow. For Windows/VDS
+work, prefer preparing bounded PowerShell/CLI commands for manual user execution
+when GUI interaction is unnecessary; use Computer Use only when direct GUI
+interaction is materially required. Use specialist subagents for independent,
+read-heavy exploration when that improves evidence or latency:
 codebase impact, strategy integrity, XM execution, sizing/broker semantics,
 recovery, data/time, tests/invariants, logs, and adversarial review. For
 high-risk execution work: explore in parallel, synthesize and decide centrally,
