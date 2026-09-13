@@ -35,8 +35,10 @@ SEP4_DAILY_START = 1_788_480_000_000
 SEP4_DAILY_END = 1_788_483_600_000
 SEP4_WEEKEND_START = 1_788_566_400_000
 SEP4_WEEKEND_END = 1_788_742_800_000
-SEP8_FUTURE_START = 1_788_825_600_000
-CERTIFICATE_TEST_ACTIVATION = 1_788_843_600_000
+SEP7_EARLY_START = 1_788_816_600_000
+SEP7_EARLY_END = 1_788_829_200_000
+SEP8_FUTURE_START = 1_788_903_000_000
+CERTIFICATE_TEST_ACTIVATION = 1_788_930_000_000
 
 
 def rate(ms: int, price: float = 100.0) -> Record:
@@ -101,6 +103,7 @@ def evidence(service):
 def certificate_machine(
     *, m15_omissions: set[int], h4_omissions: set[int] | None = None,
     source_server: str = "XMGlobal-MT5 9", tick_times: tuple[int, ...] = (),
+    m1_times: tuple[int, ...] = (),
 ) -> CaptureMachine:
     """Build enough finalized synthetic history around the real certificate dates."""
     machine = CaptureMachine(
@@ -125,6 +128,12 @@ def certificate_machine(
             })
     ticks = [{"tick_id": f"tick:{stamp}", "time_msc": stamp, "bid": 100.0,
               "ask": 100.1} for stamp in tick_times]
+    rates["m1"] = [{
+        "bar_id": f"m1:{stamp}", "open_time": stamp,
+        "finalized_at": stamp + DURATIONS["m1"], "timeframe": "m1",
+        "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0,
+        "tick_volume": 1, "spread": 10, "real_volume": 1,
+    } for stamp in m1_times]
     machine.observe({
         "observation_id": "1", "observed_at": CERTIFICATE_TEST_ACTIVATION,
         "cutoff_ms": CERTIFICATE_TEST_ACTIVATION,
@@ -305,6 +314,71 @@ def test_existing_sep4_to_7_weekend_certificate_accepts_only_contained_slots():
     }]
 
 
+def test_exact_sep7_early_closure_accepts_only_the_certified_m15_slots():
+    missing = slots(SEP7_EARLY_START, SEP7_EARLY_END, M15)
+    machine = certificate_machine(m15_omissions=missing)
+    assert machine.initialized and machine.pending_gaps == []
+    assert SEP7_EARLY_START - M15 in machine.known["m15"]
+    assert SEP7_EARLY_END in machine.known["m15"]
+
+
+def test_sep7_early_closure_boundaries_and_future_date_remain_fail_closed():
+    before = SEP7_EARLY_START - M15
+    at_reopen = SEP7_EARLY_END
+    future = SEP8_FUTURE_START
+    machine = certificate_machine(
+        m15_omissions=slots(SEP7_EARLY_START, SEP7_EARLY_END, M15)
+        | {before, at_reopen, future},
+    )
+    assert {gap["open_time"] for gap in machine.pending_gaps} == {
+        before, at_reopen, future,
+    }
+    assert all(gap["reason"] == "unresolved_candle_or_session_closure"
+               for gap in machine.pending_gaps)
+
+
+@pytest.mark.parametrize("activity", ["tick", "m1"])
+def test_activity_inside_certified_sep7_early_slot_overrides_certificate(activity):
+    kwargs = ({"tick_times": (SEP7_EARLY_START,)} if activity == "tick"
+              else {"m1_times": (SEP7_EARLY_START,)})
+    machine = certificate_machine(
+        m15_omissions=slots(SEP7_EARLY_START, SEP7_EARLY_END, M15), **kwargs,
+    )
+    assert machine.pending_gaps == [{
+        "timeframe": "m15", "open_time": SEP7_EARLY_START,
+        "finalized_at": SEP7_EARLY_START + M15,
+        "reason": "activity_proven_missing_candle",
+    }]
+
+
+@pytest.mark.parametrize("activity", ["tick", "m1"])
+def test_late_activity_cannot_coexist_with_state_advanced_across_certificate(activity):
+    machine = certificate_machine(
+        m15_omissions=slots(SEP7_EARLY_START, SEP7_EARLY_END, M15),
+    )
+    before = machine.snapshot()
+    rates = {"m1": [], "m15": [], "h4": []}
+    ticks = []
+    if activity == "tick":
+        ticks.append({"tick_id": "late", "time_msc": SEP7_EARLY_START,
+                      "bid": 100.0, "ask": 100.1})
+    else:
+        rates["m1"].append({
+            "bar_id": f"m1:{SEP7_EARLY_START}", "open_time": SEP7_EARLY_START,
+            "finalized_at": SEP7_EARLY_START + DURATIONS["m1"], "timeframe": "m1",
+            "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0,
+            "tick_volume": 1, "spread": 10, "real_volume": 1,
+        })
+    with pytest.raises(ValueError, match="activity contradicts committed no-bar certificate"):
+        machine.observe({
+            "observation_id": "2", "observed_at": CERTIFICATE_TEST_ACTIVATION,
+            "cutoff_ms": CERTIFICATE_TEST_ACTIVATION,
+            "activation_ms": CERTIFICATE_TEST_ACTIVATION,
+            "ticks": ticks, "rates": rates,
+        })
+    assert machine.snapshot() == before
+
+
 def test_activity_inside_certified_daily_slot_overrides_absence_certificate():
     machine = certificate_machine(
         m15_omissions=slots(SEP4_DAILY_START, SEP4_DAILY_END, M15),
@@ -327,6 +401,10 @@ def test_closure_manifest_is_exact_and_frozen_v1_bytes_match_canonical_git():
          "source_server": "XMGlobal-MT5 9", "symbol": "GOLD",
          "timeframes": frozenset(("m15", "h4")),
          "start_ms": SEP4_WEEKEND_START, "end_ms": SEP4_WEEKEND_END},
+        {"certificate_id": "xm9-gold-2026-09-07-early-closure",
+         "source_server": "XMGlobal-MT5 9", "symbol": "GOLD",
+         "timeframes": frozenset(("m15",)),
+         "start_ms": SEP7_EARLY_START, "end_ms": SEP7_EARLY_END},
     )
     assert len(verify_frozen_production_sources(Path("."))) == 22
     frozen_paths = [*FROZEN_PRODUCTION_SOURCE_SHA256, *FROZEN_PINESCRIPT_SOURCE_SHA256]

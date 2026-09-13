@@ -14,13 +14,13 @@ validated checkout (`core.autocrlf=false`, `core.eol=lf`). The accepted frozen
 identity is commit `c58e18ef545909184267342eff712dd08bf47dda`, manifest SHA-256
 `a6b02c8056c9996eb3bcac64a18588251f9a7c741f6c208eacbdc82de15f3e6d`,
 and passive runtime implementation SHA-256
-`1513ac844611a140e16f964c6af3a4afc2d5bc76b259bbc09c3c861ab0607200`.
+`194894059c0298821d12096ec63e7f869ecc31a7f3b28c9ca2a714266d5a49ce`.
 
 From PowerShell in the accepted authorization-freeze checkout:
 
 ```powershell
 $Repo = "D:\QuasarTrend"
-$Evidence = "D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1-closure-cert-20260914"
+$Evidence = "D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1-closure-cert2-20260914"
 $Terminal = "C:\Program Files\MetaTrader 5\terminal64.exe"
 Set-Location $Repo
 if ((git status --porcelain --untracked-files=no)) { throw "tracked worktree is dirty" }
@@ -29,14 +29,18 @@ if ($LASTEXITCODE -ne 0) { throw "frozen V1 is not an ancestor" }
 $FrozenPaths = @(python -c "from quasartrend.research.xm_gold_historical_validation import FROZEN_PRODUCTION_SOURCE_SHA256 as A, FROZEN_PINESCRIPT_SOURCE_SHA256 as B; print(*A, *B, sep='\n')")
 git diff --exit-code c58e18ef545909184267342eff712dd08bf47dda -- $FrozenPaths
 if ($LASTEXITCODE -ne 0) { throw "current frozen bytes differ from canonical Git" }
-python -c "from pathlib import Path; from quasartrend.research.xm_gold_historical_validation import verify_frozen_production_sources; from quasartrend.forward.mt5 import implementation_hash; assert len(verify_frozen_production_sources(Path('.'))) == 22; assert implementation_hash() == '1513ac844611a140e16f964c6af3a4afc2d5bc76b259bbc09c3c861ab0607200'; print('SOURCE IDENTITY PASS')"
+python -c "from pathlib import Path; from quasartrend.research.xm_gold_historical_validation import verify_frozen_production_sources; from quasartrend.forward.mt5 import implementation_hash; assert len(verify_frozen_production_sources(Path('.'))) == 22; assert implementation_hash() == '194894059c0298821d12096ec63e7f869ecc31a7f3b28c9ca2a714266d5a49ce'; print('SOURCE IDENTITY PASS')"
 python tools\run_xm_v1_forward.py --root $Evidence --repo-root $Repo --terminal-path $Terminal --mode audit --execution-mode none
 ```
 
-The failed pre-certificate activation root is immutable and remains bound to its
-earlier `implementation_sha256`; do not reuse, migrate, edit, or delete it. The
-post-review retry must use the new evidence root shown above. A provenance
-mismatch when opening an earlier root is an intentional fail-closed result.
+The failed pre-certificate activation root
+`D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1` and the failed first
+certificate activation root
+`D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1-closure-cert-20260914`
+are immutable and remain bound to their earlier `implementation_sha256` values;
+do not reuse, migrate, edit, or delete either one. The post-review retry must use
+the new `closure-cert2` evidence root shown above. A provenance mismatch when
+opening either earlier root is an intentional fail-closed result.
 
 The audit must report `audit_allowed=true`, `capture_allowed=true`, and
 `execution_allowed=false`, with exact company/server/DEMO/GOLD identity and the
@@ -87,11 +91,13 @@ leaving shadow-only status; or any ambiguous state that could corrupt the
 prospective sample. Do not delete, edit, truncate, or manually repair evidence.
 
 The Sep 4 00:00–01:00 UTC daily closure and Sep 5 00:00–Sep 7 01:00 UTC
-weekend closure evidence are specific to those exact half-open intervals on
-XMGlobal-MT5 9 / GOLD. They are not permission to classify another gap as a
-closure. If the runtime stops on a different warmup or prospective gap, the smoke
-test is rejected until that exact gap is independently explained; do not bypass
-the barrier.
+weekend closure evidence, plus the Sep 7 21:30–Sep 8 01:00 UTC early-closure
+evidence, are specific to those exact half-open intervals on XMGlobal-MT5 9 /
+GOLD. The Sep 7 certificate excludes the existing 21:15 candle and the 01:00
+reopen. These certificates are not permission to classify another gap as a
+closure. If the runtime stops on a different warmup or prospective gap, the
+smoke test is rejected until that exact gap is independently explained; do not
+bypass the barrier.
 
 ## Next separate gate
 

@@ -33,6 +33,9 @@ CERTIFIED_NO_BAR_INTERVALS = (
     {"certificate_id": "xm9-gold-2026-09-04-07-weekend-closure",
      "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15", "h4")),
      "start_ms": 1_788_566_400_000, "end_ms": 1_788_742_800_000},
+    {"certificate_id": "xm9-gold-2026-09-07-early-closure",
+     "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15",)),
+     "start_ms": 1_788_816_600_000, "end_ms": 1_788_829_200_000},
 )
 
 
@@ -83,6 +86,22 @@ class CaptureMachine:
             for certificate in CERTIFIED_NO_BAR_INTERVALS
         )
 
+    def _committed_certified_gap(self, timestamp_ms: int) -> tuple[str, int] | None:
+        cursor = self.state.chronology_cursor
+        if cursor is None:
+            return None
+        for name, timeframe in TIMEFRAMES.items():
+            rows, duration = self.known[name], DURATIONS[name]
+            if not rows or timestamp_ms < min(rows):
+                continue
+            origin = min(rows)
+            stamp = origin + (timestamp_ms - origin) // duration * duration
+            if (stamp not in rows
+                    and self._certified_no_bar(name, stamp, stamp + duration)
+                    and (stamp + duration, timeframe.priority) <= cursor):
+                return name, stamp
+        return None
+
     def snapshot(self) -> dict[str, Any]:
         return {"replay": json.loads(encode_replay_state(self.state, expected_config=self.engine.config)),
                 "pending_gaps": self.pending_gaps, "initialized": self.initialized,
@@ -132,6 +151,16 @@ class CaptureMachine:
             raise ValueError("observation clock regressed")
         if observation["observation_id"] != str(self.observations + 1):
             raise ValueError("observation sequence mismatch")
+        for timestamp_ms in (
+            *(tick["time_msc"] for tick in observation["ticks"]),
+            *(row["open_time"] for row in observation["rates"]["m1"]),
+        ):
+            contradiction = self._committed_certified_gap(timestamp_ms)
+            if contradiction is not None:
+                name, stamp = contradiction
+                raise ValueError(
+                    f"activity contradicts committed no-bar certificate: {name}:{stamp}"
+                )
         out: dict[str, list[dict[str, Any]]] = {name: [] for name in ("ticks", "m1", "bars", "signals", "shadow", "gaps")}
         for tick in sorted(observation["ticks"], key=lambda row: (row["time_msc"], row["tick_id"])):
             identity = tick["tick_id"]
