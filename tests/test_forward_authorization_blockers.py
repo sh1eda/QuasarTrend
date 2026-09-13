@@ -15,7 +15,7 @@ import pytest
 from test_forward_capture_integrity import (
     H4, M15, START, SeriesMT5, evidence, service_factory,
 )
-from test_forward_mt5 import PRODUCTION_CAPTURE_DEFAULT, Record
+from test_forward_mt5 import PRODUCTION_CAPTURE_AUTHORIZATION, Record
 from quasartrend.forward.capture import CaptureBlocked, historical
 from quasartrend.replay import ReplayEngine
 
@@ -27,7 +27,7 @@ def test_empty_ticks_with_complete_rates_do_not_prove_tick_completeness(service_
     advance. This is not proof that the empty tick response was exhaustive,
     nor does the implementation classify the absence as a session closure.
     """
-    assert PRODUCTION_CAPTURE_DEFAULT is False
+    assert PRODUCTION_CAPTURE_AUTHORIZATION is True
     api = SeriesMT5()
     service = service_factory(api=api)
     assert len(service.poll_once()) == 1200

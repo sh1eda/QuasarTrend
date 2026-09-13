@@ -1,26 +1,32 @@
-# XM V1 forward capture authorization — blocker investigation
+# XM V1 forward capture authorization — final acceptance freeze
 
-Forward capture authorization remains **BLOCKED**. Execution remains unauthorized.
-Local regression validation, six native history requests and the controlled
-Windows lock-owner experiment have returned evidence. The corrected Windows
-regression run and diagnostic suites have passed; final independent review is complete. This phase adds bounded
-validation evidence without activating production capture or submitting orders.
+`XM V1 FORWARD CAPTURE AUTHORIZATION: PASS`
+
+This PASS authorizes only the next bounded passive forward-capture activation
+stage on the validated XM demo environment. It does not start capture and does
+not assert that the smoke test will pass or that capture is operationally ready.
+It does not authorize demo or live orders, order modification/cancellation, execution,
+or production/live sizing. Audit is allowed, bounded passive capture is allowed,
+and execution remains hard-disabled. No broker order was created during this
+authorization work.
 
 ## Repository identity and scope
 
 | Field | Evidence |
 | --- | --- |
-| Accepted phase baseline | `08c1e0dc0e981a641c60fb49d800988fcb3816c2` |
+| Operational pre-task baseline | `661e49be81469c86d5df8411ec86992a971d1a17` |
+| Prior authorization evidence checkpoint | `5e14e60bc6c2a6f5b9713b1d3aac4d013f230bf5` |
 | Local branch | `codex/xm-v1-forward-capture-integrity` |
 | Resulting commit | The commit containing this report records the accepted work; the final task response records its resulting hash. No delegate commit was made. |
 | Canonical frozen V1 | `c58e18ef545909184267342eff712dd08bf47dda` |
 | Previous server-9 preflight | `6adb55da4da0377f1e443df72c34b7e8b4003904` |
 | Previous-phase reference | `docs/xm_v1_forward_capture_integrity.md` |
 
-No production strategy, capture, execution, indicator, sizing, or reconciliation
-source was changed by the validation workstream. The global capture flag remains
-false. Test fixtures temporarily enable internal capture against a synthetic
-`FakeMT5`; they provide no production or native-platform authorization.
+No frozen V1 strategy, indicator, Pine, sizing, or order-lifecycle behavior is
+changed by this freeze. The passive-capture authorization gate is true, while
+the production CLI remains audit-only by default and requires an explicit finite
+poll bound for capture. `execution_allowed` remains false and the runtime has no
+`order_send` path.
 
 Files added by this workstream:
 
@@ -45,6 +51,68 @@ database. On Windows, the crash-release test also opens and waits on the actual
 lock owner’s process handle, because the Python virtual-environment launcher can
 exit before its child releases the lock. The correction is supported by the
 controlled observations below. Production persistence and lock behavior are unchanged.
+
+## Final evidence accepted on 2026-09-13
+
+The accepted target identity is the real Windows VDS and official MT5 Python
+environment at `XM Global Limited`, `XMGlobal-MT5 9`, terminal build 6182,
+`GOLD`, DEMO. Raw account/login identifiers are neither recorded nor exposed.
+The durable allowlist remains `XMGlobal-MT5 9` or `XMGlobal-MT5 18`; this
+acceptance observation was on server 9.
+
+### Blocker 1 — GOLD session-closure completeness: resolved
+
+A read-only MQL5 script using `SymbolInfoSessionQuote` and
+`SymbolInfoSessionTrade` compiled with 0 errors and 0 warnings. It observed
+quote sessions Monday–Thursday 01:00–23:59, Friday 01:00–23:58, and none on
+Saturday/Sunday; trade sessions Monday–Friday 01:02–23:58 and none on
+Saturday/Sunday. At the probe, `TimeTradeServer - TimeGMT = +3h`; `TimeCurrent`
+was stale during the weekend while server time continued.
+
+Independent broker-native history directly bounded the Sep 4–7 target gap:
+
+- M15 bars continued through Friday 2026-09-04 23:45 UTC; the first Monday M15
+  bar was 2026-09-07 01:00 UTC.
+- The last pre-gap tick was `2026-09-04T23:57:59.841000+00:00` and the first
+  post-gap tick was `2026-09-07T01:00:02.019000+00:00`.
+- The largest observed tick gap was 176,522.178 seconds (about 49h 02m
+  02.178s), matching the native Friday 23:58 to Monday 01:00 quote closure.
+
+This is direct target-period evidence, not an inference from a generic current
+schedule. The lack of an archived holiday-exception document is therefore not
+an absolute blocker for this specific gap. This certificate must not be
+generalized to arbitrary future gaps: every future unexplained absence still
+fails closed unless independently explained, and contradictory activity
+invalidates a closure claim.
+
+### Blocker 2 — native MT5 synchronization/recovery: resolved
+
+On isolated portable MT5 instances, a clean GOLD history cache grew from about
+15 KB to about 2.49 MB during a cold request. The bounded 2026-08-15 through
+2026-09-11 request returned:
+
+| Stream | Cold result | SHA-256 | Post-restart result |
+| --- | --- | --- | --- |
+| M15 | ~129s; 1,830 rows; 2026-08-17 01:00 through 2026-09-11 23:45 UTC | `95c3a36e72d10c7086697d584e2f6f729516dbd46c3d1f9f9789f34825b72f8e` | 0.004s; 1,830 rows; identical hash |
+| H4 | 120 rows; 2026-08-17 00:00 through 2026-09-11 20:00 UTC | `3bd448459f5dd7fce1a87215c98d6f73f8ad1aba4bebd6324c5602fd5e57b569` | 0.007s; 120 rows; identical hash |
+
+Subsequent pre-restart requests were immediate and byte-normalized to the same
+row counts/hashes. In a separate disposable instance, terminating the terminal
+while a native request remained active after five seconds returned
+`LAST_ERROR = (-10002, 'IPC recv failed')`, `ROWS = NONE`, and `SHA256 = NONE`.
+No partial-row payload was observed; the induced failure returned no rows and
+failed closed. Restart then reproduced the deterministic canonical payload.
+Existing synthetic recovery tests establish that non-success/incomplete payloads
+cannot advance canonical state. The attempted 2018 probe was below the available
+broker-history floor and is not authorization evidence.
+
+## Historical pre-acceptance investigation record
+
+The sections below preserve the evidence and limitations recorded before the
+two final native observations were accepted. Where their disposition says
+BLOCKED or UNRESOLVED, the final acceptance evidence above and the authorization
+decision at the end of this document supersede that prior gate status; the
+underlying conservative runtime behavior remains unchanged.
 
 ## Delegated work and evidence ownership
 
@@ -391,31 +459,34 @@ native report with the lead's transfer hashes, checkout/import identity and
 process/run records; the native report alone is not a full source provenance
 certificate. These limits are retained rather than hidden by passing tests.
 
-## Authorization disposition
+## Final authorization disposition
 
-Remaining blockers:
+The target-period GOLD closure is directly bounded by native tick and M15
+history, and native cold synchronization, induced IPC failure with no rows,
+restart, and deterministic post-restart payload equivalence have now been
+observed. The two authorization blockers are resolved for the bounded passive
+activation scope.
 
-1. No positively established GOLD session-closure protocol separates legitimate
-   absence from incomplete broker history over the required intervals. Required
-   evidence is an XMGlobal-MT5 9 GOLD quote/session certificate with effective
-   dates, exceptions, server-to-UTC semantics and a completeness witness that
-   distinguishes missing history from inactivity. Activity must invalidate closure
-   claims, including mixed closure/activity intervals.
-2. Actual native terminal synchronization, partial-history recovery and terminal
-   restart remain unobserved. Required evidence is bounded, source-bound native
-   recovery during these conditions, with immediate statuses, durable-state
-   comparison and independently established completeness before advancement.
-   The six finite native responses and passing Windows synthetic harness do not
-   certify those behaviors. Empty ticks remain diagnostic-only when required
-   strategy rates are complete; this does not create a universal tick gate.
-The five wider baseline failures are disclosed above and are not hidden by the
-passing relevant selection. Final independent acceptance review is complete and
-supports retaining these two authorization blockers.
+The accepted permission state is:
 
-The corrected Windows synthetic recovery selection and separate diagnostic suites
-are complete. Earlier failures remain preserved with their causal explanation and
-subsequent test-only correction. No production capture command is supplied.
-Capture stays disabled and execution remains unauthorized. Native synchronization
-and closure uncertainty prevent authorization despite the passing bounded tests.
+| Permission | State |
+| --- | --- |
+| Audit | Allowed |
+| Passive capture | Authorized only for the next bounded smoke-test stage |
+| Demo execution | Not yet granted |
+| Live execution | Not granted |
 
-`XM V1 FORWARD CAPTURE AUTHORIZATION: BLOCKED`
+The PASS does not silently admit any other history gap. During activation, an
+unresolved warmup or prospective gap is a STOP condition, not permission to
+invent a candle or weaken the chronology barrier. See the
+[bounded Windows VDS runbook](xm_v1_forward_capture_runbook.md).
+
+`BLOCKER 1: RESOLVED`
+
+`BLOCKER 2: RESOLVED`
+
+`XM V1 FORWARD CAPTURE AUTHORIZATION: PASS`
+
+`DEMO EXECUTION AUTHORIZATION: NOT YET GRANTED`
+
+`LIVE EXECUTION AUTHORIZATION: NOT GRANTED`

@@ -34,13 +34,13 @@ requests an execution-readiness assessment; it cannot authorize submission.
 Live, contest, unknown company, unauthorized server, and incompatible product
 specifications fail closed with distinct messages.
 
-Forward capture remains deliberately blocked. Process-crash recovery, strict
-journals, single-writer exclusion, finalized warmup and cross-timeframe barriers
-are implemented and covered by deterministic tests. Required GOLD history still
-contains session gaps whose absence is not certified by the Python API contract.
-The runtime stalls at those gaps. See the [capture-integrity acceptance record](xm_v1_forward_capture_integrity.md)
-for the remaining source-evidence and Windows-validation requirements. Demo order
-submission remains separately unauthorized and no `order_send` path exists.
+Bounded passive capture is authorized for the next Windows VDS smoke-test stage;
+it is not automatically active. Process-crash recovery, strict journals,
+single-writer exclusion, finalized warmup and cross-timeframe barriers remain
+mandatory. Any unresolved history gap stalls the runtime and fails the smoke
+test. Follow the [bounded activation runbook](xm_v1_forward_capture_runbook.md).
+Demo order submission remains separately unauthorized and no `order_send` path
+exists.
 
 Use a fresh evidence root for this policy version. Capability snapshots are
 immutable and include the implementation hash, so a directory written by the

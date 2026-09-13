@@ -1,11 +1,12 @@
 # XM V1 forward capture integrity — implementation and acceptance record
 
-Capture authorization remains **BLOCKED**. The implementation repairs the
-reproduced process-crash, checkpoint, chronology, warmup and writer defects, but
-cannot yet establish real GOLD session closures as complete required history.
-An unexplained absence now blocks advancement. It is not a synthetic candle or
-a silently accepted closure. Windows execution of the new recovery/locking
-suite is also outstanding. No forward capture or broker order was started.
+Bounded passive capture is now **AUTHORIZED** for the next Windows VDS smoke-test
+stage. The final native closure and synchronization/restart evidence resolves the
+two authorization blockers; see the
+[final acceptance freeze](xm_v1_forward_authorization_blockers.md). This does not
+start capture or authorize broker orders. Unexplained absences still block
+advancement, and the frozen recovery, chronology, warmup, and writer invariants
+remain mandatory.
 
 Baseline: `codex/xm-v1-demo-server9-preflight`,
 `6adb55da4da0377f1e443df72c34b7e8b4003904`.
@@ -142,7 +143,7 @@ V2, broker allowlist, sizing or order-lifecycle implementation was modified.
 The unrelated untracked `golden/`, `tests/test_export_mt5_gold_ticks.py` and
 `tools/export_mt5_gold_ticks.py` were not edited or staged.
 
-## Remaining authorization blocker and next evidence
+## Authorization resolution and next gate
 
 The Python wrapper documents UTC timestamps and generic success/error responses,
 but does not establish that Python success certifies completion of native history
@@ -154,16 +155,17 @@ required GOLD interval as a proven no-bar session closure. See the primary
 [Python error contract](https://www.mql5.com/en/docs/python_metatrader5/mt5lasterror_py)
 and [native range partial-result contract](https://www.mql5.com/en/docs/series/copyticksrange).
 
-This source-contract gap requires an accepted completeness guarantee or a
-read-only native MT5 synchronization witness with exact interval/error/provenance
-evidence, then implementation and tests for admitting *only* certified no-bar
-intervals. Repeated empty responses or an invented daily/weekend calendar are
-not substitutes. The current conservative implementation will stall on legitimate
-session gaps as well as missing candles; that is a documented remaining functional
-blocker, not capture readiness. No VDS capture command is offered at this gate.
+The accepted native evidence directly bounds the Sep 4–7 closure and observes
+cold synchronization, interruption with no returned rows, restart, and exact
+post-restart payload equivalence. It does not turn a weekly schedule into a
+universal future closure certificate. Repeated empty responses or an invented
+calendar remain insufficient; any unresolved warmup or prospective gap stops the
+bounded smoke test. The operational procedure is in
+[xm_v1_forward_capture_runbook.md](xm_v1_forward_capture_runbook.md).
 
 Windows CRLF freeze verification is unchanged: the established repo-local
 `core.autocrlf=false`, `core.eol=lf` checkout procedure remains necessary. No
 platform-independent source-identity change was mixed into this task.
-Broker-order reconciliation, demo submission authorization, live trading and
-production sizing remain separate, unauthorized future gates.
+After a successful passive smoke test, broker-order reconciliation and demo
+execution lifecycle validation are a separate gate. Demo submission, live
+trading, and production sizing remain unauthorized.

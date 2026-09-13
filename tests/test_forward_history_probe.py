@@ -14,6 +14,12 @@ SPEC.loader.exec_module(probe)
 AS_OF = datetime(2026, 9, 9, 12, tzinfo=UTC)
 
 
+@pytest.fixture(autouse=True)
+def _historical_probe_requires_pre_authorization_gate(monkeypatch):
+    """The retained blocker probe must never run against an authorized runtime."""
+    monkeypatch.setattr(probe.forward, "FORWARD_CAPTURE_INTEGRITY_AUTHORIZED", False)
+
+
 class Native(FakeMT5):
     def __init__(self, terminal, *, mode="rows", code=1, switch=False, **kwargs):
         super().__init__(server="XMGlobal-MT5 9", **kwargs)

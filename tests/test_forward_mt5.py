@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 import quasartrend.forward.mt5 as forward_mt5
 
-PRODUCTION_CAPTURE_DEFAULT = forward_mt5.FORWARD_CAPTURE_INTEGRITY_AUTHORIZED
+PRODUCTION_CAPTURE_AUTHORIZATION = forward_mt5.FORWARD_CAPTURE_INTEGRITY_AUTHORIZED
 
 from quasartrend.forward.mt5 import (
     BROKER_POLICY_VERSION, CAPTURE_INTEGRITY_BLOCKER, FROZEN_V1_COMMIT, FROZEN_V1_MANIFEST_SHA256, IDENTITY_BLOCKER, ORDER_BLOCKER, DemoExecutionAdapter, Family1LongOnlyShadow, JsonlJournal,
@@ -136,14 +136,14 @@ def test_capture_capability_is_independent_of_execution_permissions() -> None:
     assert not disconnected.audit_allowed and disconnected.audit_blocker == "XM DEMO AUDIT: BLOCKED — TERMINAL DISCONNECTED"
 
 
-def test_account_identity_and_production_capture_gate_fail_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    assert PRODUCTION_CAPTURE_DEFAULT is False
+def test_account_identity_and_revoked_capture_gate_fail_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    assert PRODUCTION_CAPTURE_AUTHORIZATION is True
     missing = audit_capabilities(FakeMT5(login=None), execution_mode="demo")
     assert not missing.account_identity_proven and missing.audit_blocker == IDENTITY_BLOCKER
     monkeypatch.setattr(forward_mt5, "FORWARD_CAPTURE_INTEGRITY_AUTHORIZED", False)
     audit = audit_capabilities(FakeMT5(server="XMGlobal-MT5 9"))
     assert audit.audit_allowed and not audit.capture_allowed and audit.capture_blocker == CAPTURE_INTEGRITY_BLOCKER
-    with pytest.raises(PermissionError, match="REQUIRED HISTORY CLOSURES"):
+    with pytest.raises(PermissionError, match="PASSIVE CAPTURE AUTHORIZATION"):
         XMForwardService(tmp_path, mt5=FakeMT5(server="XMGlobal-MT5 9"))
 
 
@@ -155,7 +155,9 @@ def test_cli_audit_exit_status_uses_audit_permission_not_capture_or_execution(mo
     mt5 = FakeMT5(server="XMGlobal-MT5 9")
     audit = replace(audit_capabilities(mt5), capture_allowed=False, capture_blocker=CAPTURE_INTEGRITY_BLOCKER)
     monkeypatch.setattr(runner, "XMForwardService", lambda *_args, **_kwargs: SimpleNamespace(audit=audit, mt5=mt5, close=mt5.shutdown))
-    monkeypatch.setattr(sys, "argv", [str(runner_path), "--root", str(tmp_path), "--mode", "audit"])
+    # Omitting --mode proves the production CLI remains audit-only by default
+    # even though bounded passive capture is now authorized.
+    monkeypatch.setattr(sys, "argv", [str(runner_path), "--root", str(tmp_path)])
     assert runner.main() == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "PASS"
@@ -168,6 +170,13 @@ def test_cli_audit_exit_status_uses_audit_permission_not_capture_or_execution(mo
     assert runner.main() == 2
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "BLOCKED" and "BROKER COMPANY" in payload["permissions"]["audit_blocker"]
+
+    monkeypatch.setattr(runner, "XMForwardService", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("parser must block before service creation")))
+    for extra in ([], ["--max-polls", "121"]):
+        monkeypatch.setattr(sys, "argv", [str(runner_path), "--root", str(tmp_path), "--mode", "capture", *extra])
+        with pytest.raises(SystemExit) as stopped:
+            runner.main()
+        assert stopped.value.code == 2
 
 
 def test_numpy_structured_mt5_records_are_indexed_without_attribute_access(tmp_path: Path) -> None:
@@ -215,7 +224,9 @@ def test_family1_shadow_admits_long_rejects_short_and_has_no_submission_path(tmp
     assert [row["decision"] for row in rows] == ["admit", "reject"]
     assert not hasattr(shadow, "submit") and not hasattr(shadow, "order_send")
     tree = ast.parse(Path(forward_mt5.__file__).read_text(encoding="utf-8"))
-    assert not any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "order_send" for node in ast.walk(tree))
+    forbidden_calls = {"order_send", "order_send_async", "order_check", "order_modify", "order_delete", "position_close"}
+    assert not any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in forbidden_calls for node in ast.walk(tree))
+    assert not any(isinstance(node, ast.Attribute) and node.attr.startswith("TRADE_ACTION") for node in ast.walk(tree))
 
 
 def test_initialize_path_and_failure_are_fail_closed(tmp_path: Path) -> None:
@@ -233,6 +244,30 @@ def test_run_uses_bounded_exponential_backoff(tmp_path: Path) -> None:
     service.poll_once = fail  # type: ignore[method-assign]
     service.run(lambda: len(pauses) >= 3, interval_seconds=1.0)
     assert pauses == [1.0, 2.0, 4.0]
+    service.close()
+
+    completed = 0
+    bounded = XMForwardService(tmp_path / "bounded", mt5=FakeMT5(), sleeper=lambda _: None, execution_mode="demo")
+    def succeed() -> tuple[object, ...]:
+        nonlocal completed
+        completed += 1
+        return ()
+    bounded.poll_once = succeed  # type: ignore[method-assign]
+    bounded.run(lambda: False, interval_seconds=1.0, max_polls=2)
+    assert completed == 2
+    bounded.close()
+
+    attempts = 0
+    stopped = XMForwardService(tmp_path / "gap-stop", mt5=FakeMT5(), sleeper=lambda _: None, execution_mode="demo")
+    def gap() -> tuple[object, ...]:
+        nonlocal attempts
+        attempts += 1
+        raise forward_mt5.CaptureBlocked("unresolved gap")
+    stopped.poll_once = gap  # type: ignore[method-assign]
+    with pytest.raises(forward_mt5.CaptureBlocked, match="unresolved gap"):
+        stopped.run(lambda: False, interval_seconds=1.0, max_polls=2)
+    assert attempts == 1
+    stopped.close()
 
 
 def test_journals_bind_frozen_v1_and_implementation_provenance(tmp_path: Path) -> None:

@@ -30,11 +30,11 @@ DEMO_EXECUTION_VOLUME_POLICY = "SYMBOL_VOLUME_MIN"
 EXPECTED_SWAP_MODE_POINTS_RAW = 1
 ORDER_BLOCKER = "DEMO ORDER SUBMISSION BLOCKED — ORDER LIFECYCLE AUTHORIZATION NOT GRANTED"
 IDENTITY_BLOCKER = "XM DEMO AUDIT: BLOCKED — ACCOUNT IDENTITY NOT PROVEN"
-CAPTURE_INTEGRITY_BLOCKER = "XM FORWARD CAPTURE: BLOCKED — REQUIRED HISTORY CLOSURES LACK SYNCHRONIZED SOURCE EVIDENCE"
-# Process-crash recovery and conservative history barriers are implemented.
-# Native GOLD session gaps still require a proven no-bar source contract;
-# synthetic continuous-history tests do not authorize this real-data gate.
-FORWARD_CAPTURE_INTEGRITY_AUTHORIZED = False
+CAPTURE_INTEGRITY_BLOCKER = "XM FORWARD CAPTURE: BLOCKED — PASSIVE CAPTURE AUTHORIZATION NOT GRANTED"
+# This authorizes passive evidence capture only. The CLI remains audit-only by
+# default, every unresolved data gap still fails closed, and execution remains
+# independently hard-blocked with no order-submission path.
+FORWARD_CAPTURE_INTEGRITY_AUTHORIZED = True
 FROZEN_V1_COMMIT = "c58e18ef545909184267342eff712dd08bf47dda"
 FROZEN_V1_MANIFEST_SHA256 = "a6b02c8056c9996eb3bcac64a18588251f9a7c741f6c208eacbdc82de15f3e6d"
 HOLDOUT_START_MS = 1787950680000  # 2026-08-28T20:58:00Z
@@ -598,12 +598,20 @@ class XMForwardService:
                 "pending": self.state.strategy_state.pending_direction is not None,
                 "open_v1_position": self.state.strategy_state.trade is not None, "last_execution": self.last_execution}
 
-    def run(self, stop: Callable[[], bool], interval_seconds: float = 5.0) -> None:
+    def run(self, stop: Callable[[], bool], interval_seconds: float = 5.0, *, max_polls: int | None = None) -> None:
+        if max_polls is not None and (type(max_polls) is not int or max_polls <= 0):
+            raise ValueError("max_polls must be a positive integer")
+        completed_polls = 0
         while not stop():
             delay = interval_seconds
             try:
                 self.poll_once()
                 self._consecutive_failures = 0
+                completed_polls += 1
+            except CaptureBlocked:
+                # A data-integrity gap is a STOP condition, not a transient
+                # transport failure eligible for retry within this process.
+                raise
             except (RuntimeError, PermissionError, ValueError):
                 if self._poisoned:
                     raise
@@ -611,6 +619,8 @@ class XMForwardService:
                 if self._consecutive_failures >= 4:
                     raise
                 delay = min(interval_seconds * (2 ** (self._consecutive_failures - 1)), 60.0)
+            if max_polls is not None and completed_polls >= max_polls:
+                break
             if not stop():
                 self.sleeper(delay)
 

@@ -9,6 +9,8 @@ import signal
 
 from quasartrend.forward.mt5 import XMForwardService
 
+MAX_PASSIVE_SMOKE_POLLS = 120
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Fail-closed XM GOLD frozen-V1 forward capture")
@@ -18,7 +20,14 @@ def main() -> int:
     parser.add_argument("--terminal-path", type=Path, help="optional terminal64.exe path; never a credential")
     parser.add_argument("--repo-root", type=Path, default=Path("."), help="repository root used to verify frozen V1/Pine sources")
     parser.add_argument("--interval-seconds", type=float, default=5.0)
+    parser.add_argument("--max-polls", type=int, help=f"required passive-capture bound (1..{MAX_PASSIVE_SMOKE_POLLS})")
     args = parser.parse_args()
+    if args.mode == "capture" and (args.max_polls is None or args.max_polls <= 0):
+        parser.error("--mode capture requires --max-polls with a positive integer")
+    if args.max_polls is not None and args.max_polls > MAX_PASSIVE_SMOKE_POLLS:
+        parser.error(f"--max-polls cannot exceed {MAX_PASSIVE_SMOKE_POLLS}")
+    if args.mode == "audit" and args.max_polls is not None:
+        parser.error("--max-polls is valid only with --mode capture")
     try:
         service = XMForwardService(args.root, execution_mode=args.execution_mode, terminal_path=args.terminal_path, repo_root=args.repo_root, activate=args.mode == "capture")
     except (PermissionError, RuntimeError, ValueError) as error:
@@ -46,7 +55,7 @@ def main() -> int:
         def stop(*_: object) -> None:
             nonlocal stopping; stopping = True
         signal.signal(signal.SIGINT, stop); signal.signal(signal.SIGTERM, stop)
-        service.run(lambda: stopping, args.interval_seconds)
+        service.run(lambda: stopping, args.interval_seconds, max_polls=args.max_polls)
         print(json.dumps(service.health(), sort_keys=True))
         return 0
     except (PermissionError, RuntimeError, ValueError) as error:
