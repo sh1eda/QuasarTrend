@@ -413,7 +413,9 @@ class XMForwardService:
         expected: dict[str, list[dict[str, Any]]] = {name: [] for name in self.projections}
         for index, observation in enumerate(self.inputs.rows, 1):
             if self.machine is None:
-                self.machine = CaptureMachine(activation_ms=observation["activation_ms"], max_signal_lag_ms=self.max_signal_lag_ms)
+                self.machine = CaptureMachine(activation_ms=observation["activation_ms"],
+                                              max_signal_lag_ms=self.max_signal_lag_ms,
+                                              source_server=self.audit.server, symbol=SYMBOL)
             outputs = self.machine.observe(observation)
             for name, rows in outputs.items():
                 expected[name].extend(self.projections[name].material(row) for row in rows)
@@ -565,7 +567,9 @@ class XMForwardService:
                        "requests": {"ticks": tick_request, "rates": requests}}
         # Validate the transition on a private candidate before committing it.
         # A bad API observation must not permanently poison the canonical WAL.
-        candidate = deepcopy(self.machine) if self.machine is not None else CaptureMachine(activation_ms=now_ms, max_signal_lag_ms=self.max_signal_lag_ms)
+        candidate = deepcopy(self.machine) if self.machine is not None else CaptureMachine(
+            activation_ms=now_ms, max_signal_lag_ms=self.max_signal_lag_ms,
+            source_server=self.audit.server, symbol=SYMBOL)
         outputs = candidate.observe(observation)
         try:
             # The sole commit boundary: no projection or recursive transition

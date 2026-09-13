@@ -18,13 +18,25 @@ import pytest
 
 from test_forward_mt5 import FakeMT5, Record
 import quasartrend.forward.mt5 as forward
-from quasartrend.forward.capture import CaptureBlocked, CaptureMachine, DURATIONS, historical
+from quasartrend.forward.capture import (
+    CERTIFIED_NO_BAR_INTERVALS, CaptureBlocked, CaptureMachine, DURATIONS, historical,
+)
 from quasartrend.forward.durable import EvidenceLock, JsonlJournal, canonical
 from quasartrend.persistence import encode_replay_state
 from quasartrend.replay import ReplayEngine
+from quasartrend.research.xm_gold_historical_validation import (
+    FROZEN_PINESCRIPT_SOURCE_SHA256, FROZEN_PRODUCTION_SOURCE_SHA256,
+    verify_frozen_production_sources,
+)
 
 H4, M15 = DURATIONS['h4'], DURATIONS['m15']
 START = 600 * H4
+SEP4_DAILY_START = 1_788_480_000_000
+SEP4_DAILY_END = 1_788_483_600_000
+SEP4_WEEKEND_START = 1_788_566_400_000
+SEP4_WEEKEND_END = 1_788_742_800_000
+SEP8_FUTURE_START = 1_788_825_600_000
+CERTIFICATE_TEST_ACTIVATION = 1_788_843_600_000
 
 
 def rate(ms: int, price: float = 100.0) -> Record:
@@ -84,6 +96,45 @@ def evidence(service):
         'checkpoint': service.checkpoint.read_bytes(),
         'state': service.machine.snapshot(),
     }
+
+
+def certificate_machine(
+    *, m15_omissions: set[int], h4_omissions: set[int] | None = None,
+    source_server: str = "XMGlobal-MT5 9", tick_times: tuple[int, ...] = (),
+) -> CaptureMachine:
+    """Build enough finalized synthetic history around the real certificate dates."""
+    machine = CaptureMachine(
+        activation_ms=CERTIFICATE_TEST_ACTIVATION, max_signal_lag_ms=60_000,
+        source_server=source_server, symbol="GOLD",
+    )
+    rates: dict[str, list[dict[str, object]]] = {"m1": [], "m15": [], "h4": []}
+    for name, duration, count, omissions in (
+        ("m15", M15, 900, m15_omissions),
+        ("h4", H4, 700, h4_omissions or set()),
+    ):
+        end = (CERTIFICATE_TEST_ACTIVATION if name == "m15"
+               else CERTIFICATE_TEST_ACTIVATION - CERTIFICATE_TEST_ACTIVATION % H4)
+        for stamp in range(end - count * duration, end, duration):
+            if stamp in omissions:
+                continue
+            rates[name].append({
+                "bar_id": f"{name}:{stamp}", "open_time": stamp,
+                "finalized_at": stamp + duration, "timeframe": name,
+                "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0,
+                "tick_volume": 1, "spread": 10, "real_volume": 1,
+            })
+    ticks = [{"tick_id": f"tick:{stamp}", "time_msc": stamp, "bid": 100.0,
+              "ask": 100.1} for stamp in tick_times]
+    machine.observe({
+        "observation_id": "1", "observed_at": CERTIFICATE_TEST_ACTIVATION,
+        "cutoff_ms": CERTIFICATE_TEST_ACTIVATION,
+        "activation_ms": CERTIFICATE_TEST_ACTIVATION, "ticks": ticks, "rates": rates,
+    })
+    return machine
+
+
+def slots(start: int, end: int, duration: int) -> set[int]:
+    return set(range(start, end, duration))
 
 
 def test_exact_finalized_bootstrap_and_clean_replay(service_factory):
@@ -175,6 +226,114 @@ def test_unexplained_session_gap_is_not_inferred_from_empty_ticks(service_factor
         service.poll_once()
     assert any(gap['reason'] == 'unresolved_candle_or_session_closure' for gap in service.machine.pending_gaps)
     assert service.state.chronology_cursor is None
+
+
+def test_exact_sep4_daily_closure_is_accepted_only_for_xm9_gold():
+    missing = slots(SEP4_DAILY_START, SEP4_DAILY_END, M15)
+    accepted = certificate_machine(m15_omissions=missing)
+    assert accepted.initialized and accepted.pending_gaps == []
+    assert not missing & accepted.known["m15"].keys()
+
+    wrong_server = certificate_machine(
+        m15_omissions=missing, source_server="XMGlobal-MT5 18",
+    )
+    assert {gap["open_time"] for gap in wrong_server.pending_gaps} == missing
+    assert not wrong_server.initialized
+
+
+def test_sep4_daily_closure_replays_identically_across_service_restart(service_factory):
+    api = SeriesMT5()
+    api.server = "XMGlobal-MT5 9"
+    shift = SEP4_DAILY_END - START
+    for rows in api.all_rates.values():
+        for row in rows:
+            row.time += shift // 1000
+    api.now_ms = SEP4_DAILY_END
+    first_m15 = api.all_rates[15][0].time * 1000
+    api.all_rates[15][:0] = [rate(first_m15 - offset * M15) for offset in range(4, 0, -1)]
+    api.omit[1].update(slots(SEP4_DAILY_START, SEP4_DAILY_END, 60_000))
+    api.omit[15].update(slots(SEP4_DAILY_START, SEP4_DAILY_END, M15))
+
+    service = service_factory(api=api)
+    assert len(service.poll_once()) == 1200
+    assert service.machine.initialized and service.machine.pending_gaps == []
+    before_restart = evidence(service)
+    service.close()
+
+    resumed = service_factory(api=api)
+    assert evidence(resumed) == before_restart
+    projection_counts = {name: journal.count for name, journal in resumed.projections.items()}
+    assert resumed.poll_once() == ()
+    assert {name: journal.count for name, journal in resumed.projections.items()} == projection_counts
+    assert resumed.machine.pending_gaps == [] and api.sent == 0
+
+
+def test_nearby_uncertified_gap_and_certificate_boundaries_remain_blocked():
+    before = SEP4_DAILY_START - M15
+    after = SEP4_DAILY_END
+    machine = certificate_machine(
+        m15_omissions=slots(SEP4_DAILY_START, SEP4_DAILY_END, M15) | {before, after},
+    )
+    assert {gap["open_time"] for gap in machine.pending_gaps} == {before, after}
+    assert all(gap["reason"] == "unresolved_candle_or_session_closure"
+               for gap in machine.pending_gaps)
+
+
+def test_future_daily_shaped_gap_remains_blocked():
+    missing = slots(SEP8_FUTURE_START, SEP8_FUTURE_START + 4 * M15, M15)
+    machine = certificate_machine(m15_omissions=missing)
+    assert {gap["open_time"] for gap in machine.pending_gaps} == missing
+    assert not machine.initialized
+
+
+def test_existing_sep4_to_7_weekend_certificate_accepts_only_contained_slots():
+    missing_m15 = slots(SEP4_WEEKEND_START, SEP4_WEEKEND_END, M15)
+    missing_h4 = slots(SEP4_WEEKEND_START, SEP4_WEEKEND_END - H4 // 4, H4)
+    machine = certificate_machine(
+        m15_omissions=missing_m15, h4_omissions=missing_h4,
+    )
+    assert machine.initialized and machine.pending_gaps == []
+
+    crossing_end = SEP4_WEEKEND_END - H4 // 4
+    outside = certificate_machine(
+        m15_omissions=missing_m15, h4_omissions=missing_h4 | {crossing_end},
+    )
+    assert outside.pending_gaps == [{
+        "timeframe": "h4", "open_time": crossing_end,
+        "finalized_at": crossing_end + H4,
+        "reason": "activity_proven_missing_candle",
+    }]
+
+
+def test_activity_inside_certified_daily_slot_overrides_absence_certificate():
+    machine = certificate_machine(
+        m15_omissions=slots(SEP4_DAILY_START, SEP4_DAILY_END, M15),
+        tick_times=(SEP4_DAILY_START,),
+    )
+    assert machine.pending_gaps == [{
+        "timeframe": "m15", "open_time": SEP4_DAILY_START,
+        "finalized_at": SEP4_DAILY_START + M15,
+        "reason": "activity_proven_missing_candle",
+    }]
+
+
+def test_closure_manifest_is_exact_and_frozen_v1_bytes_match_canonical_git():
+    assert CERTIFIED_NO_BAR_INTERVALS == (
+        {"certificate_id": "xm9-gold-2026-09-04-daily-closure",
+         "source_server": "XMGlobal-MT5 9", "symbol": "GOLD",
+         "timeframes": frozenset(("m15",)),
+         "start_ms": SEP4_DAILY_START, "end_ms": SEP4_DAILY_END},
+        {"certificate_id": "xm9-gold-2026-09-04-07-weekend-closure",
+         "source_server": "XMGlobal-MT5 9", "symbol": "GOLD",
+         "timeframes": frozenset(("m15", "h4")),
+         "start_ms": SEP4_WEEKEND_START, "end_ms": SEP4_WEEKEND_END},
+    )
+    assert len(verify_frozen_production_sources(Path("."))) == 22
+    frozen_paths = [*FROZEN_PRODUCTION_SOURCE_SHA256, *FROZEN_PINESCRIPT_SOURCE_SHA256]
+    subprocess.run(
+        ["git", "diff", "--exit-code", "c58e18ef545909184267342eff712dd08bf47dda", "--", *frozen_paths],
+        check=True,
+    )
 
 
 def test_delayed_h4_coincident_bias_and_live_replay_equivalence(service_factory):

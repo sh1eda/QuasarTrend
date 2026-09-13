@@ -1,8 +1,9 @@
 """Deterministic capture state machine over durable MT5 observations.
 
-Absence is deliberately NOT a session calendar. Until independently certified
-no-bar intervals exist, any missing slot after a pinned initialization origin
-stalls the entire strategy batch. Ticks/M1 can prove activity, never inactivity.
+Absence is deliberately NOT a session calendar. Only exact, independently
+certified no-bar intervals may be skipped; every other missing slot after a
+pinned initialization origin stalls the entire strategy batch. Ticks/M1 can
+prove activity, never inactivity.
 """
 from __future__ import annotations
 
@@ -21,6 +22,18 @@ from .durable import canonical
 DURATIONS = {"m1": 60_000, "m15": 900_000, "h4": 14_400_000}
 TIMEFRAMES = {"m15": Timeframe.MINUTES_15, "h4": Timeframe.HOURS_4}
 WARMUP_FINALIZED_BARS = 600
+
+# Exact half-open UTC intervals established by broker-native XMGlobal-MT5 9 / GOLD
+# history. These are evidence-specific exceptions, not a recurring session rule.
+# M1 absence remains diagnostic-only and is deliberately not suppressed here.
+CERTIFIED_NO_BAR_INTERVALS = (
+    {"certificate_id": "xm9-gold-2026-09-04-daily-closure",
+     "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15",)),
+     "start_ms": 1_788_480_000_000, "end_ms": 1_788_483_600_000},
+    {"certificate_id": "xm9-gold-2026-09-04-07-weekend-closure",
+     "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15", "h4")),
+     "start_ms": 1_788_566_400_000, "end_ms": 1_788_742_800_000},
+)
 
 
 class CaptureBlocked(RuntimeError):
@@ -43,8 +56,10 @@ def shadow_row(signal: Mapping[str, Any]) -> dict[str, Any]:
 
 class CaptureMachine:
     """Pure input-to-state/output transformation; it never consults wall time."""
-    def __init__(self, *, activation_ms: int, max_signal_lag_ms: int) -> None:
+    def __init__(self, *, activation_ms: int, max_signal_lag_ms: int,
+                 source_server: str, symbol: str) -> None:
         self.activation_ms, self.max_signal_lag_ms = activation_ms, max_signal_lag_ms
+        self.source_server, self.symbol = source_server, symbol
         self.engine = ReplayEngine()
         self.state = self.engine.initial_state("GOLD")
         self.known: dict[str, dict[int, dict[str, Any]]] = {name: {} for name in DURATIONS}
@@ -57,6 +72,16 @@ class CaptureMachine:
         self.initialized = False
         self.last_observed_ms: int | None = None
         self.observations = 0
+
+    def _certified_no_bar(self, timeframe: str, start_ms: int, end_ms: int) -> bool:
+        return any(
+            certificate["source_server"] == self.source_server
+            and certificate["symbol"] == self.symbol
+            and timeframe in certificate["timeframes"]
+            and certificate["start_ms"] <= start_ms
+            and end_ms <= certificate["end_ms"]
+            for certificate in CERTIFIED_NO_BAR_INTERVALS
+        )
 
     def snapshot(self) -> dict[str, Any]:
         return {"replay": json.loads(encode_replay_state(self.state, expected_config=self.engine.config)),
@@ -88,6 +113,8 @@ class CaptureMachine:
                 active |= any(stamp <= row["open_time"] < stamp + duration for row in self.known["m1"].values())
                 if name == "h4":
                     active |= any(stamp <= row["open_time"] < stamp + duration for row in self.known["m15"].values())
+                if not active and self._certified_no_bar(name, stamp, stamp + duration):
+                    continue
                 result.append({"timeframe": name, "open_time": stamp, "finalized_at": stamp + duration,
                                "reason": "activity_proven_missing_candle" if active else "unresolved_candle_or_session_closure"})
         return result
