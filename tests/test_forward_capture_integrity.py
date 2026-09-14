@@ -39,6 +39,9 @@ SEP7_EARLY_START = 1_788_816_600_000
 SEP7_EARLY_END = 1_788_829_200_000
 SEP9_DAILY_START = 1_788_912_000_000
 SEP9_DAILY_END = 1_788_915_600_000
+SEP10_DAILY_START = 1_788_998_400_000
+SEP10_DAILY_END = 1_789_002_000_000
+SEP10_TEST_ACTIVATION = 1_789_016_400_000
 SEP8_FUTURE_START = 1_788_903_000_000
 CERTIFICATE_TEST_ACTIVATION = 1_788_930_000_000
 
@@ -280,6 +283,50 @@ def test_sep4_daily_closure_replays_identically_across_service_restart(service_f
     assert resumed.machine.pending_gaps == [] and api.sent == 0
 
 
+@pytest.mark.parametrize("activity", ["tick", "m1"])
+def test_sep10_restart_and_late_contradiction_preserve_durable_evidence(service_factory, monkeypatch, activity):
+    api = SeriesMT5()
+    api.server = "XMGlobal-MT5 9"
+    shift = SEP10_DAILY_END - START
+    for rows in api.all_rates.values():
+        for row in rows:
+            row.time += shift // 1000
+    api.now_ms = SEP10_DAILY_END
+    first_m15 = api.all_rates[15][0].time * 1000
+    api.all_rates[15][:0] = [rate(first_m15 - offset * M15) for offset in range(4, 0, -1)]
+    api.omit[1].update(slots(SEP10_DAILY_START, SEP10_DAILY_END, 60_000))
+    api.omit[15].update(slots(SEP10_DAILY_START, SEP10_DAILY_END, M15))
+
+    service = service_factory(api=api)
+    assert len(service.poll_once()) == 1200
+    assert service.machine.initialized and service.machine.pending_gaps == []
+    before_restart = evidence(service)
+    service.close()
+
+    resumed = service_factory(api=api)
+    assert evidence(resumed) == before_restart
+    projection_counts = {name: journal.count for name, journal in resumed.projections.items()}
+    assert resumed.poll_once() == ()
+    assert {name: journal.count for name, journal in resumed.projections.items()} == projection_counts
+    assert resumed.machine.pending_gaps == [] and api.sent == 0
+
+
+    before_contradiction = evidence(resumed)
+    if activity == "tick":
+        monkeypatch.setattr(resumed, "_tick_rows", lambda now: ([{
+            "tick_id": "late-sep10", "time_msc": SEP10_DAILY_START,
+            "bid": 100.0, "ask": 100.1,
+        }], {}))
+    else:
+        api.omit[1].remove(SEP10_DAILY_START)
+    with pytest.raises(ValueError, match="activity contradicts committed no-bar certificate"):
+        resumed.poll_once()
+    assert evidence(resumed) == before_contradiction
+    resumed.close()
+    recovered = service_factory(api=api)
+    assert evidence(recovered) == before_contradiction
+
+
 def test_nearby_uncertified_gap_and_certificate_boundaries_remain_blocked():
     before = SEP4_DAILY_START - M15
     after = SEP4_DAILY_END
@@ -417,7 +464,7 @@ def test_sep9_daily_closure_boundaries_remain_fail_closed():
 
 
 def test_sep9_daily_closure_does_not_create_a_recurring_session_rule():
-    other_date_start = SEP9_DAILY_START + 24 * 60 * 60_000
+    other_date_start = SEP9_DAILY_START + 2 * 24 * 60 * 60_000
     missing = slots(other_date_start, other_date_start + 4 * M15, M15)
     machine = certificate_machine(
         m15_omissions=missing, activation_ms=other_date_start + 5 * 60 * 60_000,
@@ -472,6 +519,87 @@ def test_late_sep9_activity_is_rejected_before_capture_state_mutation(activity):
             if key != "engine"} == before
 
 
+def test_exact_sep10_daily_closure_accepts_only_the_certified_m15_slots():
+    missing = slots(SEP10_DAILY_START, SEP10_DAILY_END, M15)
+    machine = certificate_machine(m15_omissions=missing, activation_ms=SEP10_TEST_ACTIVATION)
+    assert machine.initialized and machine.pending_gaps == []
+    assert SEP10_DAILY_START - M15 in machine.known["m15"]
+    assert SEP10_DAILY_END in machine.known["m15"]
+
+
+def test_sep10_daily_closure_boundaries_remain_fail_closed():
+    at_2345 = SEP10_DAILY_START - M15
+    at_reopen = SEP10_DAILY_END
+    machine = certificate_machine(
+        activation_ms=SEP10_TEST_ACTIVATION,
+        m15_omissions=slots(SEP10_DAILY_START, SEP10_DAILY_END, M15)
+        | {at_2345, at_reopen},
+    )
+    assert {gap["open_time"] for gap in machine.pending_gaps} == {
+        at_2345, at_reopen,
+    }
+    assert all(gap["reason"] == "unresolved_candle_or_session_closure"
+               for gap in machine.pending_gaps)
+
+
+def test_sep10_daily_closure_does_not_create_a_recurring_session_rule():
+    other_date_start = SEP10_DAILY_START + 24 * 60 * 60_000
+    missing = slots(other_date_start, other_date_start + 4 * M15, M15)
+    machine = certificate_machine(
+        m15_omissions=missing, activation_ms=other_date_start + 5 * 60 * 60_000,
+    )
+    assert {gap["open_time"] for gap in machine.pending_gaps} == missing
+    assert all(gap["reason"] == "unresolved_candle_or_session_closure"
+               for gap in machine.pending_gaps)
+    assert not machine.initialized
+
+
+@pytest.mark.parametrize("activity", ["tick", "m1"])
+def test_activity_inside_certified_sep10_daily_slot_blocks_admission(activity):
+    kwargs = ({"tick_times": (SEP10_DAILY_START,)} if activity == "tick"
+              else {"m1_times": (SEP10_DAILY_START,)})
+    machine = certificate_machine(
+        activation_ms=SEP10_TEST_ACTIVATION,
+        m15_omissions=slots(SEP10_DAILY_START, SEP10_DAILY_END, M15), **kwargs,
+    )
+    assert machine.pending_gaps == [{
+        "timeframe": "m15", "open_time": SEP10_DAILY_START,
+        "finalized_at": SEP10_DAILY_START + M15,
+        "reason": "activity_proven_missing_candle",
+    }]
+
+
+@pytest.mark.parametrize("activity", ["tick", "m1"])
+def test_late_sep10_activity_is_rejected_before_capture_state_mutation(activity):
+    machine = certificate_machine(
+        activation_ms=SEP10_TEST_ACTIVATION,
+        m15_omissions=slots(SEP10_DAILY_START, SEP10_DAILY_END, M15),
+    )
+    before = deepcopy({key: value for key, value in machine.__dict__.items()
+                       if key != "engine"})
+    rates = {"m1": [], "m15": [], "h4": []}
+    ticks = []
+    if activity == "tick":
+        ticks.append({"tick_id": "late-sep10", "time_msc": SEP10_DAILY_START,
+                      "bid": 100.0, "ask": 100.1})
+    else:
+        rates["m1"].append({
+            "bar_id": f"m1:{SEP10_DAILY_START}", "open_time": SEP10_DAILY_START,
+            "finalized_at": SEP10_DAILY_START + DURATIONS["m1"], "timeframe": "m1",
+            "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0,
+            "tick_volume": 1, "spread": 10, "real_volume": 1,
+        })
+    with pytest.raises(ValueError, match="activity contradicts committed no-bar certificate"):
+        machine.observe({
+            "observation_id": "2", "observed_at": SEP10_TEST_ACTIVATION,
+            "cutoff_ms": SEP10_TEST_ACTIVATION,
+            "activation_ms": SEP10_TEST_ACTIVATION,
+            "ticks": ticks, "rates": rates,
+        })
+    assert {key: value for key, value in machine.__dict__.items()
+            if key != "engine"} == before
+
+
 def test_closure_manifest_is_exact_and_frozen_v1_bytes_match_canonical_git():
     assert CERTIFIED_NO_BAR_INTERVALS == (
         {"certificate_id": "xm9-gold-2026-09-04-daily-closure",
@@ -490,6 +618,10 @@ def test_closure_manifest_is_exact_and_frozen_v1_bytes_match_canonical_git():
          "source_server": "XMGlobal-MT5 9", "symbol": "GOLD",
          "timeframes": frozenset(("m15",)),
          "start_ms": SEP9_DAILY_START, "end_ms": SEP9_DAILY_END},
+        {"certificate_id": "xm9-gold-2026-09-10-daily-closure",
+         "source_server": "XMGlobal-MT5 9", "symbol": "GOLD",
+         "timeframes": frozenset(("m15",)),
+         "start_ms": SEP10_DAILY_START, "end_ms": SEP10_DAILY_END},
     )
     assert len(verify_frozen_production_sources(Path("."))) == 22
     frozen_paths = [*FROZEN_PRODUCTION_SOURCE_SHA256, *FROZEN_PINESCRIPT_SOURCE_SHA256]

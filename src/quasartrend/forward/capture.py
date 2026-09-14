@@ -39,6 +39,9 @@ CERTIFIED_NO_BAR_INTERVALS = (
     {"certificate_id": "xm9-gold-2026-09-09-daily-closure",
      "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15",)),
      "start_ms": 1_788_912_000_000, "end_ms": 1_788_915_600_000},
+    {"certificate_id": "xm9-gold-2026-09-10-daily-closure",
+     "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15",)),
+     "start_ms": 1_788_998_400_000, "end_ms": 1_789_002_000_000},
 )
 
 
