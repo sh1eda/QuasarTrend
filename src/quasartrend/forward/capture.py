@@ -48,6 +48,9 @@ CERTIFIED_NO_BAR_INTERVALS = (
     {"certificate_id": "xm9-gold-2026-09-12-14-weekend-closure",
      "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15",)),
      "start_ms": 1_789_171_200_000, "end_ms": 1_789_347_600_000},
+    {"certificate_id": "xm9-gold-2026-09-15-daily-closure",
+     "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15",)),
+     "start_ms": 1_789_430_400_000, "end_ms": 1_789_434_000_000},
 )
 
 
@@ -124,6 +127,8 @@ class CaptureMachine:
                  if item["certificate_id"] == "xm9-gold-2026-09-11-daily-closure"),
             next(item for item in CERTIFIED_NO_BAR_INTERVALS
                  if item["certificate_id"] == "xm9-gold-2026-09-12-14-weekend-closure"),
+            next(item for item in CERTIFIED_NO_BAR_INTERVALS
+                 if item["certificate_id"] == "xm9-gold-2026-09-15-daily-closure"),
         )
         name, duration = "m15", DURATIONS["m15"]
         stamps = set(self.known[name])
