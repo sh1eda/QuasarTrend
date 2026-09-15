@@ -14,13 +14,13 @@ validated checkout (`core.autocrlf=false`, `core.eol=lf`). The accepted frozen
 identity is commit `c58e18ef545909184267342eff712dd08bf47dda`, manifest SHA-256
 `a6b02c8056c9996eb3bcac64a18588251f9a7c741f6c208eacbdc82de15f3e6d`,
 and passive runtime implementation SHA-256
-`90ee3f0ceaeedc5e49ed10cb57c2e8a8f16a3b313dfdd1000b359e11280c6a60`.
+`626df7f555229f11b06cf7ed787286216317c0c727680fb35c586ba8d15516e4`.
 
 From PowerShell in the accepted authorization-freeze checkout:
 
 ```powershell
 $Repo = "D:\QuasarTrend"
-$Evidence = "D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1-closure-cert4-20260914"
+$Evidence = "D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1-closure-cert5-20260914"
 $Terminal = "C:\Program Files\MetaTrader 5\terminal64.exe"
 Set-Location $Repo
 if ((git status --porcelain --untracked-files=no)) { throw "tracked worktree is dirty" }
@@ -29,7 +29,7 @@ if ($LASTEXITCODE -ne 0) { throw "frozen V1 is not an ancestor" }
 $FrozenPaths = @(python -c "from quasartrend.research.xm_gold_historical_validation import FROZEN_PRODUCTION_SOURCE_SHA256 as A, FROZEN_PINESCRIPT_SOURCE_SHA256 as B; print(*A, *B, sep='\n')")
 git diff --exit-code c58e18ef545909184267342eff712dd08bf47dda -- $FrozenPaths
 if ($LASTEXITCODE -ne 0) { throw "current frozen bytes differ from canonical Git" }
-python -c "from pathlib import Path; from quasartrend.research.xm_gold_historical_validation import verify_frozen_production_sources; from quasartrend.forward.mt5 import implementation_hash; assert len(verify_frozen_production_sources(Path('.'))) == 22; assert implementation_hash() == '90ee3f0ceaeedc5e49ed10cb57c2e8a8f16a3b313dfdd1000b359e11280c6a60'; print('SOURCE IDENTITY PASS')"
+python -c "from pathlib import Path; from quasartrend.research.xm_gold_historical_validation import verify_frozen_production_sources; from quasartrend.forward.mt5 import implementation_hash; assert len(verify_frozen_production_sources(Path('.'))) == 22; assert implementation_hash() == '626df7f555229f11b06cf7ed787286216317c0c727680fb35c586ba8d15516e4'; print('SOURCE IDENTITY PASS')"
 python tools\run_xm_v1_forward.py --root $Evidence --repo-root $Repo --terminal-path $Terminal --mode audit --execution-mode none
 ```
 
@@ -41,9 +41,11 @@ and the failed second certificate activation root
 `D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1-closure-cert2-20260914`
 and the failed third certificate activation root
 `D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1-closure-cert3-20260914`
+and the failed fourth certificate activation root
+`D:\QuasarTrendEvidence\XMGlobal-MT5-9-bounded-passive-v1-closure-cert4-20260914`
 are immutable and remain bound to their earlier `implementation_sha256` values;
 do not reuse, migrate, edit, or delete any of them. The post-review retry must use
-the new `closure-cert4` evidence root shown above. A provenance mismatch when
+the new `closure-cert5` evidence root shown above. A provenance mismatch when
 opening any earlier root is an intentional fail-closed result.
 
 The audit must report `audit_allowed=true`, `capture_allowed=true`, and
@@ -97,11 +99,13 @@ prospective sample. Do not delete, edit, truncate, or manually repair evidence.
 The Sep 4 00:00–01:00 UTC daily closure and Sep 5 00:00–Sep 7 01:00 UTC
 weekend closure evidence, plus the Sep 7 21:30–Sep 8 01:00 UTC early-closure
 evidence, the Sep 9 00:00–01:00 UTC daily closure evidence, and the Sep 10
-00:00–01:00 UTC closure evidence are specific to
+00:00–01:00 UTC closure evidence, and the Sep 11 00:00–01:00 UTC closure
+evidence are specific to
 those exact half-open intervals on XMGlobal-MT5 9 / GOLD. The Sep 7 certificate
 excludes the existing 21:15 candle and the 01:00 reopen. The Sep 9 certificate
 excludes the existing 23:45 candle and the 01:00 reopen. The Sep 10 M15
-certificate excludes Sep 9 23:45 and Sep 10 01:00. These certificates are
+certificate excludes Sep 9 23:45 and Sep 10 01:00. The Sep 11 M15 certificate
+excludes Sep 10 23:45 and Sep 11 01:00. These certificates are
 not permission to classify another gap as a closure. If the runtime stops on a
 different warmup or prospective gap, the smoke test is rejected until that exact
 gap is independently explained; do not bypass the barrier.
@@ -122,6 +126,23 @@ contradicting an already committed closure rejects the observation before
 state, journal, or checkpoint mutation. Repository verification uses synthetic
 fixtures only; this change does not constitute a new broker probe or authorize
 a retry before review.
+
+The Sep 11 certificate uses the user-supplied target-native probe from the
+validated XM Global Limited / XMGlobal-MT5 9 / GOLD target. It showed existing
+M15 bars at Sep 10 23:30 and 23:45; no M15 bars at Sep 11 00:00, 00:15, 00:30,
+or 00:45; and existing M15 bars at Sep 11 01:00, 01:15, and 01:30. It showed no
+M1 activity inside the exact 00:00–01:00 interval. The M1 row count does not
+itself prove closure. The last pre-closure tick was
+`2026-09-10T23:58:59.229000Z`; the first reopen tick was
+`2026-09-11T01:00:02.005000Z`; and the largest observed tick gap was 3662.776
+seconds. Only the exact supplied
+`[2026-09-11T00:00:00Z, 2026-09-11T01:00:00Z)` M15 interval is admitted. It
+does not establish a recurring daily or weekday schedule, timezone or DST rule,
+or any future closure. Contradictory tick/M1 activity still prevents closure
+admission; late activity contradicting an already committed closure rejects the
+observation before state, journal, or checkpoint mutation. Repository
+verification uses synthetic fixtures only; this change does not constitute a
+new broker probe or authorize a retry before review.
 
 ## Next separate gate
 

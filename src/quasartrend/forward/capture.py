@@ -42,6 +42,9 @@ CERTIFIED_NO_BAR_INTERVALS = (
     {"certificate_id": "xm9-gold-2026-09-10-daily-closure",
      "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15",)),
      "start_ms": 1_788_998_400_000, "end_ms": 1_789_002_000_000},
+    {"certificate_id": "xm9-gold-2026-09-11-daily-closure",
+     "source_server": "XMGlobal-MT5 9", "symbol": "GOLD", "timeframes": frozenset(("m15",)),
+     "start_ms": 1_789_084_800_000, "end_ms": 1_789_088_400_000},
 )
 
 
@@ -108,6 +111,30 @@ class CaptureMachine:
                 return name, stamp
         return None
 
+    def _observed_certified_gap(
+        self, timestamp_ms: int, observation: Mapping[str, Any],
+    ) -> tuple[str, int] | None:
+        # This admission-time preflight belongs only to the new exact Sep 11
+        # evidence. Prior certificates retain their established behavior.
+        certificate = next(
+            item for item in CERTIFIED_NO_BAR_INTERVALS
+            if item["certificate_id"] == "xm9-gold-2026-09-11-daily-closure"
+        )
+        name, duration = "m15", DURATIONS["m15"]
+        stamps = set(self.known[name])
+        stamps.update(row["open_time"] for row in observation["rates"][name])
+        if (certificate["source_server"] == self.source_server
+                and certificate["symbol"] == self.symbol
+                and name in certificate["timeframes"]
+                and stamps and timestamp_ms >= min(stamps)):
+            origin = min(stamps)
+            stamp = origin + (timestamp_ms - origin) // duration * duration
+            if (stamp not in stamps
+                    and certificate["start_ms"] <= stamp
+                    and stamp + duration <= certificate["end_ms"]):
+                return name, stamp
+        return self._committed_certified_gap(timestamp_ms)
+
     def snapshot(self) -> dict[str, Any]:
         return {"replay": json.loads(encode_replay_state(self.state, expected_config=self.engine.config)),
                 "pending_gaps": self.pending_gaps, "initialized": self.initialized,
@@ -161,7 +188,7 @@ class CaptureMachine:
             *(tick["time_msc"] for tick in observation["ticks"]),
             *(row["open_time"] for row in observation["rates"]["m1"]),
         ):
-            contradiction = self._committed_certified_gap(timestamp_ms)
+            contradiction = self._observed_certified_gap(timestamp_ms, observation)
             if contradiction is not None:
                 name, stamp = contradiction
                 raise ValueError(
